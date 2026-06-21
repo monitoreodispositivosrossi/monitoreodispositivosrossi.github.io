@@ -3678,6 +3678,7 @@ function openModalMotivo(idx, valorActual) {
       dispositivos.forEach(d => { if (d.motivoImplante === valorActual) d.motivoImplante = valor; });
       MOTIVOS_IMPLANTE[idx] = valor;
     }
+    guardarConfig_('MOTIVOS_IMPLANTE', MOTIVOS_IMPLANTE).catch(e=>console.error(e));
     content.style.maxWidth = '';
     closeModal();
     renderMotivos();
@@ -3769,6 +3770,7 @@ function openModalMarca(idx, valorActual) {
       dispositivos.forEach(d => { if (d.marca === valorActual) d.marca = nombre; });
       MARCAS_DISPOSITIVOS[idx] = nombre;
     }
+    guardarConfig_('MARCAS_DISPOSITIVOS', MARCAS_DISPOSITIVOS).catch(e=>console.error(e));
     content.style.maxWidth = '';
     closeModal();
     renderMarcas();
