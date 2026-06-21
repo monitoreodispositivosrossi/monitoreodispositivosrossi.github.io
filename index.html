@@ -2079,9 +2079,11 @@ async function renderForm() {
         nuevaFechaProgramada = editando.fechaControl;
       } else {
         // Tomar el proxControl del control anterior más reciente
-        const anterior = otrosControles
-          .filter(c => diasRestantes(c.fechaControl) < diasRestantes(editando.fechaControl))
-          .reduce((a,b) => diasRestantes(a.fechaControl) > diasRestantes(b.fechaControl) ? a : b, null);
+        const anteriores = otrosControles
+          .filter(c => diasRestantes(c.fechaControl) < diasRestantes(editando.fechaControl));
+        const anterior = anteriores.length > 0
+          ? anteriores.reduce((a,b) => diasRestantes(a.fechaControl) > diasRestantes(b.fechaControl) ? a : b)
+          : null;
         nuevaFechaProgramada = anterior ? toInputDate(anterior.proxControl) : editando.fechaControl;
       }
       editando.fechaProgramada = nuevaFechaProgramada;
