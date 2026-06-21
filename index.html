@@ -554,15 +554,7 @@ function addMonths(date, months) {
   return d;
 }
 
-function seedControles() {
-  function dLocal(n) {
-    const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()+n); return d;
-  }
-  controles.push({id:'C0', pacienteId:'P2', dispositivoId:'D2', profesionalId:'PR1', fechaProgramada:dLocal(-185), fechaControl:dLocal(-180), proxControl:dLocal(5), proxMeses:6, bateriaAnios:'0', bateriaMeses:'7', eriProximo:'No', indicaciones:'Control habitual', riesgoManual:false, fase:null, fechaCarga:dLocal(-180)});
-  controles.push({id:'C-1', pacienteId:'P1', dispositivoId:'D1', profesionalId:'PR2', fechaProgramada:dLocal(-365), fechaControl:dLocal(-365), proxControl:dLocal(18), proxMeses:12, bateriaAnios:'4', bateriaMeses:'0', eriProximo:'No', indicaciones:'Sin novedades', riesgoManual:false, fase:null, fechaCarga:dLocal(-365)});
-  controles.push({id:'C-2', pacienteId:'P3', dispositivoId:'D3', profesionalId:'PR1', fechaProgramada:dLocal(-180), fechaControl:dLocal(-180), proxControl:dLocal(40), proxMeses:6, bateriaAnios:'2', bateriaMeses:'0', eriProximo:'No', indicaciones:'Sin novedades', riesgoManual:false, fase:null, fechaCarga:dLocal(-180)});
-}
-seedControles();
+
 
 /* ===================== ESTRATIFICACIÓN DE RIESGO ===================== */
 const PARAMS_POR_PERFIL = {
@@ -747,17 +739,7 @@ function calcularRiesgo(c) {
 
 nextAccionId = 1;
 
-function seedTurnos() {
-  const hoy = new Date(); hoy.setHours(0,0,0,0);
-  const fechasAtencion = [];
-  for (let d = new Date(hoy), i=0; fechasAtencion.length < 4 && i < 40; d.setDate(d.getDate()+1), i++) {
-    if (AGENDA_CONFIG.diasAtencion.includes(d.getDay())) fechasAtencion.push(new Date(d));
-  }
-  turnosReservados.push({pacienteId:'P2', fecha: fechasAtencion[0], hora:'09:00', controlId:'C0', origen:'presencial'});
-  turnosReservados.push({pacienteId:'P1', fecha: fechasAtencion[0], hora:'09:20', controlId:'C-1', profesionalId:'PR2', origen:'presencial'});
-  turnosReservados.push({pacienteId:'P3', fecha: fechasAtencion[1], hora:'09:10', controlId:'C-2', profesionalId:'PR1', origen:'presencial'});
-}
-seedTurnos();
+
 
 function waLink(pac, fecha) {
   const appUrl = window.location.href.split('?')[0];
@@ -1153,6 +1135,7 @@ function renderAgendaConfig(targetId = 'cfg-agenda') {
       idx = AGENDA_CONFIG.diasAtencion.indexOf(dia);
       if (idx >= 0) AGENDA_CONFIG.diasAtencion.splice(idx, 1);
       else AGENDA_CONFIG.diasAtencion.push(dia);
+      guardarConfig_('AGENDA_CONFIG', AGENDA_CONFIG);
       renderAgendaConfig(targetId);
     });
   });
@@ -1162,6 +1145,7 @@ function renderAgendaConfig(targetId = 'cfg-agenda') {
     if (val && !AGENDA_CONFIG.horarios.includes(val)) {
       AGENDA_CONFIG.horarios.push(val);
       AGENDA_CONFIG.horarios.sort();
+      guardarConfig_('AGENDA_CONFIG', AGENDA_CONFIG);
       renderAgendaConfig(targetId);
     }
   });
@@ -1171,6 +1155,7 @@ function renderAgendaConfig(targetId = 'cfg-agenda') {
     if (val && !AGENDA_CONFIG.diasBloqueados.includes(val)) {
       AGENDA_CONFIG.diasBloqueados.push(val);
       AGENDA_CONFIG.diasBloqueados.sort();
+      guardarConfig_('AGENDA_CONFIG', AGENDA_CONFIG);
       renderAgendaConfig(targetId);
     }
   });
@@ -1182,6 +1167,7 @@ function renderAgendaConfig(targetId = 'cfg-agenda') {
       const ok = document.getElementById('cfg-turnos-online-ok');
       ok.style.display = 'inline';
       setTimeout(() => ok.style.display = 'none', 2000);
+      guardarConfig_('TURNOS_ONLINE_POR_DIA', val);
     }
   });
 
@@ -1192,6 +1178,7 @@ function renderAgendaConfig(targetId = 'cfg-agenda') {
       const ok = document.getElementById('cfg-ventana-ok');
       ok.style.display = 'inline';
       setTimeout(() => ok.style.display = 'none', 2000);
+      guardarConfig_('VENTANA_DIAS', val);
     }
   });
 
@@ -1202,6 +1189,7 @@ function renderAgendaConfig(targetId = 'cfg-agenda') {
       const ok = document.getElementById('cfg-horizonte-ok');
       ok.style.display = 'inline';
       setTimeout(() => ok.style.display = 'none', 2000);
+      guardarConfig_('HORIZONTE_TURNOS_DIAS', val);
     }
   });
 }
@@ -1216,6 +1204,7 @@ function renderHorarios() {
   document.querySelectorAll('.btn-del-horario').forEach(btn => {
     btn.addEventListener('click', () => {
       AGENDA_CONFIG.horarios = AGENDA_CONFIG.horarios.filter(h => h !== btn.dataset.h);
+      guardarConfig_('AGENDA_CONFIG', AGENDA_CONFIG);
       renderAgenda();
     });
   });
@@ -1238,6 +1227,7 @@ function renderDiasBloqueados() {
   document.querySelectorAll('.btn-del-bloqueado').forEach(btn => {
     btn.addEventListener('click', () => {
       AGENDA_CONFIG.diasBloqueados = AGENDA_CONFIG.diasBloqueados.filter(d => d !== btn.dataset.d);
+      guardarConfig_('AGENDA_CONFIG', AGENDA_CONFIG);
       renderAgenda();
     });
   });
@@ -1357,22 +1347,15 @@ function openModalAsignarTurno(fechaStr, hora) {
     content.style.maxWidth = '';
     closeModal();
   });
-  document.getElementById('at-guardar').addEventListener('click', () => {
+  document.getElementById('at-guardar').addEventListener('click', async () => {
     const pacienteId = getPacienteSelector('at-paciente');
     const msg = document.getElementById('at-msg');
     if (!pacienteId) { msg.style.display='block'; msg.textContent='Seleccioná un paciente.'; return; }
     // Verificar que no haya otro turno en ese horario
-    if (turnosReservados.some(t => toInputDate(t.fecha)===fechaStr && t.hora===hora)) {
-      msg.style.display='block'; msg.textContent='Ese horario ya está ocupado.'; return;
-    }
     controlActivo = controles.filter(c=>c.pacienteId===pacienteId).sort((a,b)=>new Date(b.fechaControl)-new Date(a.fechaControl))[0];
-    turnosReservados.push({
-      pacienteId,
-      fecha: parseLocalDate(fechaStr),
-      hora,
-      controlId: controlActivo?.id || null,
-      origen: 'presencial'
-    });
+    const datosTurnoAt = {pacienteId, fecha: fechaStr, hora, controlId: (controlActivo||{}).id||'', profesionalId: profesionalLogueado ? profesionalLogueado.id : '', origen: 'presencial'};
+    const resAt = await reservarTurno_(datosTurnoAt);
+    if (!resAt.ok) { msg.style.display='block'; msg.textContent=resAt.error||'Ese horario ya está ocupado.'; return; }
     content.style.maxWidth = '';
     closeModal();
     renderAgenda();
@@ -1791,6 +1774,16 @@ async function renderForm() {
       editando.parametrosTecnicos = {...parametrosTecnicosTemp};
       controlGuardado = editando;
       controlEditandoId = null;
+      actualizarControl_(editando.id, {
+        fechaControl: toInputDate(fechaControl),
+        proxControl: toInputDate(proxControl),
+        proxMeses: meses,
+        bateriaAnios: editando.bateriaAnios,
+        bateriaMeses: editando.bateriaMeses,
+        indicaciones: editando.indicaciones,
+        riesgoManual: editando.riesgoManual,
+        parametrosTecnicos: editando.parametrosTecnicos
+      }).catch(e => console.error('Error actualizando control:', e));
     } else {
       // Nuevo control
       controlesPrevios = controles.filter(c => c.pacienteId===pacienteId && c.dispositivoId===dispositivoId);
@@ -1831,6 +1824,11 @@ async function renderForm() {
       if (nuevaFecha !== undefined) dispActualizar.fechaImplante = nuevaFecha;
       nuevoMotivo = getMotivoValue('f-motivo-implante');
       if (nuevoMotivo !== undefined) dispActualizar.motivoImplante = nuevoMotivo;
+      const cambiosDisp = {};
+      if (nuevoSubtipo !== undefined) cambiosDisp.subtipo = nuevoSubtipo;
+      if (nuevaFecha !== undefined) cambiosDisp.fechaImplante = nuevaFecha;
+      if (nuevoMotivo !== undefined) cambiosDisp.motivoImplante = nuevoMotivo;
+      if (Object.keys(cambiosDisp).length) actualizarDispositivo_(dispositivoId, cambiosDisp).catch(e => console.error('Error actualizando dispositivo:', e));
     }
 
     renderDash();
@@ -1947,11 +1945,22 @@ function openModalPacienteSimple(onSaved) {
       fechaNacimiento: document.getElementById('mps-fechanac').value,
       estado: 'Activo',
       consentimiento: document.getElementById('mps-consentimiento').checked,
-      codigo: generarCodigo()
     };
-    pacientes.push(nuevo);
-    closeModal();
-    if (onSaved) onSaved(nuevo);
+    const btnGuardar = document.getElementById('mps-guardar');
+    btnGuardar.disabled = true;
+    btnGuardar.textContent = 'Guardando...';
+    guardarNuevoPaciente_(datosPaciente).then(res => {
+      const nuevo = {...datosPaciente, id: res.id, codigo: res.codigo};
+      pacientes.push(nuevo);
+      closeModal();
+      if (onSaved) onSaved(nuevo);
+    }).catch(e => {
+      console.error(e);
+      msg.style.display = 'block';
+      msg.textContent = 'Error al guardar. Intentá nuevamente.';
+      btnGuardar.disabled = false;
+      btnGuardar.textContent = 'Guardar paciente';
+    });
   });
 }
 
@@ -2053,7 +2062,7 @@ function openModalPaciente(onSaved) {
     bindSubtipoDisp('mp-disp-tipo', 'mp-disp-subtipo-field', 'mp-disp-subtipo');
     bindMotivoSelector('mp-disp-motivoimplante');
     document.getElementById('mp-disp-marca').innerHTML = marcaOptionsHTML();
-    document.getElementById('mp-guardar').addEventListener('click', () => {
+    document.getElementById('mp-guardar').addEventListener('click', async () => {
       const tipo = document.getElementById('mp-disp-tipo').value;
       const marca = document.getElementById('mp-disp-marca').value;
       const modelo = document.getElementById('mp-disp-modelo').value.trim();
@@ -2062,21 +2071,30 @@ function openModalPaciente(onSaved) {
       const fechaImplante = document.getElementById('mp-disp-fechaimplante')?.value || '';
       const motivoImplante = getMotivoValue('mp-disp-motivoimplante');
       const msg = document.getElementById('mp-msg2');
-      nuevo = {
-        id:'P'+(nextPacienteId++),
-        nombre:`${datosPaciente.apellido}, ${datosPaciente.nombre}`,
-        dni: datosPaciente.dni,
-        tel: datosPaciente.tel,
-        codigo: generarCodigo(),
-        sexo: datosPaciente.sexo,
-        fechaNacimiento: datosPaciente.fechaNacimiento,
-        estado: datosPaciente.estado,
-        consentimiento: datosPaciente.consentimiento
-      };
-      pacientes.push(nuevo);
-      dispositivos.push({id:'D'+(nextDispositivoId++), pacienteId:nuevo.id, tipo, marca, modelo, serie, subtipo, fechaImplante, motivoImplante, activo:true});
-      closeModal();
-      if (onSaved) onSaved(nuevo);
+      const btnGuardar = document.getElementById('mp-guardar');
+      btnGuardar.disabled = true;
+      btnGuardar.textContent = 'Guardando...';
+      try {
+        const datosPac = {
+          nombre: `${datosPaciente.apellido}, ${datosPaciente.nombre}`,
+          dni: datosPaciente.dni, tel: datosPaciente.tel,
+          sexo: datosPaciente.sexo, fechaNacimiento: datosPaciente.fechaNacimiento,
+          estado: datosPaciente.estado, consentimiento: datosPaciente.consentimiento
+        };
+        const resPac = await guardarNuevoPaciente_(datosPac);
+        nuevo = {...datosPac, id: resPac.id, codigo: resPac.codigo};
+        pacientes.push(nuevo);
+        const resDisp = await guardarNuevoDispositivo_(nuevo.id, {tipo, marca, modelo, serie, subtipo, fechaImplante, motivoImplante}, false);
+        dispositivos.push({id: resDisp.id, pacienteId: nuevo.id, tipo, marca, modelo, serie, subtipo, fechaImplante, motivoImplante, activo: true});
+        closeModal();
+        if (onSaved) onSaved(nuevo);
+      } catch(e) {
+        console.error(e);
+        msg.style.display = 'block';
+        msg.textContent = 'Error al guardar. Intentá nuevamente.';
+        btnGuardar.disabled = false;
+        btnGuardar.textContent = 'Guardar paciente y dispositivo';
+      }
     });
   }
 
@@ -2117,10 +2135,21 @@ function openModalDispositivo(onSaved) {
       msg.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Seleccioná un paciente válido, y completá marca y modelo.`;
       return;
     }
-    nuevo = {id:'D'+(nextDispositivoId++), pacienteId, tipo, marca, modelo};
-    dispositivos.push(nuevo);
-    closeModal();
-    if (onSaved) onSaved(nuevo);
+    const btnGuardar2 = document.getElementById('md-guardar');
+    btnGuardar2.disabled = true;
+    btnGuardar2.textContent = 'Guardando...';
+    guardarNuevoDispositivo_(pacienteId, {tipo, marca, modelo}, false).then(res => {
+      const nuevo = {id: res.id, pacienteId, tipo, marca, modelo, activo: true};
+      dispositivos.push(nuevo);
+      closeModal();
+      if (onSaved) onSaved(nuevo);
+    }).catch(e => {
+      console.error(e);
+      msg.style.display = 'block';
+      msg.textContent = 'Error al guardar el dispositivo.';
+      btnGuardar2.disabled = false;
+      btnGuardar2.textContent = 'Guardar dispositivo';
+    });
   });
 }
 
@@ -2811,13 +2840,17 @@ function openModalEditarPaciente(pacienteId) {
       msg.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Completá Apellido, Nombre y DNI.`;
       return;
     }
-    p.nombre = `${apellido}, ${nombre}`;
-    p.dni = dni;
-    p.sexo = document.getElementById('ep-sexo').value;
-    p.fechaNacimiento = document.getElementById('ep-fechanac').value;
-    p.tel = document.getElementById('ep-tel').value.trim();
-    p.estado = document.getElementById('ep-estado').value;
-    p.consentimiento = document.getElementById('ep-consentimiento').checked;
+    const cambios = {
+      nombre: `${apellido}, ${nombre}`,
+      dni: dni,
+      sexo: document.getElementById('ep-sexo').value,
+      fechaNacimiento: document.getElementById('ep-fechanac').value,
+      tel: document.getElementById('ep-tel').value.trim(),
+      estado: document.getElementById('ep-estado').value,
+      consentimiento: document.getElementById('ep-consentimiento').checked
+    };
+    Object.assign(p, cambios);
+    actualizarPaciente_(p.id, cambios).catch(e => console.error('Error actualizando paciente:', e));
     closeModal();
     const _lp = document.getElementById("lista-pac"); if (_lp) renderListaPacientes();
   });
@@ -3007,13 +3040,17 @@ function openModalEditarDispositivo(pacienteId) {
     }, 0);
   }
   document.getElementById('ed-guardar').addEventListener('click', () => {
-    disp.tipo = document.getElementById('ed-tipo').value;
-    disp.marca = document.getElementById('ed-marca').value;
-    disp.modelo = document.getElementById('ed-modelo').value.trim();
-    disp.serie = document.getElementById('ed-serie')?.value.trim() || '';
-    disp.subtipo = document.getElementById('ed-subtipo')?.value || '';
-    disp.fechaImplante = document.getElementById('ed-fechaimplante')?.value || '';
-    disp.motivoImplante = getMotivoValue('ed-motivoimplante');
+    const cambiosDisp = {
+      tipo: document.getElementById('ed-tipo').value,
+      marca: document.getElementById('ed-marca').value,
+      modelo: document.getElementById('ed-modelo').value.trim(),
+      serie: document.getElementById('ed-serie')?.value.trim() || '',
+      subtipo: document.getElementById('ed-subtipo')?.value || '',
+      fechaImplante: document.getElementById('ed-fechaimplante')?.value || '',
+      motivoImplante: getMotivoValue('ed-motivoimplante')
+    };
+    Object.assign(disp, cambiosDisp);
+    actualizarDispositivo_(disp.id, cambiosDisp).catch(e => console.error('Error actualizando dispositivo:', e));
     closeModal();
     const _lp = document.getElementById("lista-pac"); if (_lp) renderListaPacientes();
   });
@@ -3111,10 +3148,22 @@ function openModalRecambio(pacienteId) {
     // Parsear fecha local para evitar bug UTC
     const fechaLocal = fecha ? (() => { const [y,m,d] = fecha.split('-'); return new Date(+y, +m-1, +d); })() : new Date();
     const actual = dispositivos.find(d=>d.pacienteId===pacienteId && d.activo);
-    if (actual) { actual.activo=false; actual.fechaRecambio=fechaLocal; }
-    dispositivos.push({id:'D'+(nextDispositivoId++), pacienteId, tipo, marca, modelo, serie, subtipo, fechaImplante: fecha, motivoImplante, activo:true});
-    closeModal();
-    const _lp = document.getElementById("lista-pac"); if (_lp) renderListaPacientes();
+    const btnRc = document.getElementById('rc-guardar');
+    btnRc.disabled = true;
+    btnRc.textContent = 'Guardando...';
+    guardarNuevoDispositivo_(pacienteId, {tipo, marca, modelo, serie, subtipo, fechaImplante: fecha, motivoImplante}, true).then(res => {
+      if (actual) { actual.activo=false; actual.fechaRecambio=fechaLocal; }
+      dispositivos.push({id: res.id, pacienteId, tipo, marca, modelo, serie, subtipo, fechaImplante: fecha, motivoImplante, activo:true});
+      closeModal();
+      const _lp = document.getElementById("lista-pac"); if (_lp) renderListaPacientes();
+    }).catch(e => {
+      console.error(e);
+      const msgRc = document.getElementById('rc-msg');
+      msgRc.style.display = 'block';
+      msgRc.textContent = 'Error al confirmar el recambio.';
+      btnRc.disabled = false;
+      btnRc.textContent = 'Confirmar recambio';
+    });
   });
 }
 
@@ -3146,9 +3195,21 @@ function openModalNuevoDispositivo(pacienteId, onSaved) {
     const marca=document.getElementById('nd-marca').value;
     const modelo=document.getElementById('nd-modelo').value.trim();
     const subtipo=document.getElementById('nd-subtipo')?.value||'';
-    dispositivos.push({id:'D'+(nextDispositivoId++), pacienteId, tipo, marca, modelo, subtipo, activo:true});
-    closeModal();
-    if (onSaved) onSaved();
+    const btnNd = document.getElementById('nd-guardar');
+    btnNd.disabled = true;
+    btnNd.textContent = 'Guardando...';
+    guardarNuevoDispositivo_(pacienteId, {tipo, marca, modelo, subtipo, fechaImplante: document.getElementById('nd-fechaimplante').value||'', motivoImplante: document.getElementById('nd-motivoimplante')?.value||''}, false).then(res => {
+      dispositivos.push({id: res.id, pacienteId, tipo, marca, modelo, subtipo, activo:true});
+      closeModal();
+      if (onSaved) onSaved();
+    }).catch(e => {
+      console.error(e);
+      const msgNd = document.getElementById('nd-msg');
+      msgNd.style.display = 'block';
+      msgNd.textContent = 'Error al guardar el dispositivo.';
+      btnNd.disabled = false;
+      btnNd.textContent = 'Guardar dispositivo';
+    });
   });
 }
 
@@ -3217,6 +3278,7 @@ function renderCfgInstitucion() {
     CONFIG_INSTITUCION.servicio = document.getElementById('cfg-inst-servicio').value.trim() || CONFIG_INSTITUCION.servicio;
     CONFIG_INSTITUCION.institucion = document.getElementById('cfg-inst-institucion').value.trim() || CONFIG_INSTITUCION.institucion;
     actualizarTextoInstitucional();
+    guardarConfig_('CONFIG_INSTITUCION', CONFIG_INSTITUCION);
     const ok = document.getElementById('cfg-inst-ok');
     ok.style.display = 'inline';
     setTimeout(() => ok.style.display = 'none', 2000);
@@ -3247,6 +3309,7 @@ function renderCfgInvestigacion() {
     const ok = document.getElementById('cfg-fecha-corte-ok');
     ok.style.display = 'inline-flex';
     setTimeout(() => ok.style.display = 'none', 2000);
+    guardarConfig_('FECHA_IMPLEMENTACION_STR', val);
   });
 }
 
@@ -3288,6 +3351,7 @@ function renderMotivos() {
     btn.addEventListener('click', () => {
       openModalConfirmar(`¿Eliminás el motivo "${btn.dataset.nombre}"?`, () => {
         MOTIVOS_IMPLANTE.splice(parseInt(btn.dataset.idx), 1);
+        guardarConfig_('MOTIVOS_IMPLANTE', MOTIVOS_IMPLANTE);
         renderMotivos();
       });
     });
@@ -3330,6 +3394,7 @@ function openModalMotivo(idx, valorActual) {
       dispositivos.forEach(d => { if (d.motivoImplante === valorActual) d.motivoImplante = valor; });
       MOTIVOS_IMPLANTE[idx] = valor;
     }
+    guardarConfig_('MOTIVOS_IMPLANTE', MOTIVOS_IMPLANTE);
     content.style.maxWidth = '';
     closeModal();
     renderMotivos();
@@ -3378,6 +3443,7 @@ function renderMarcas() {
     btn.addEventListener('click', () => {
       openModalConfirmar(`¿Eliminás la marca "${btn.dataset.nombre}"?`, () => {
         MARCAS_DISPOSITIVOS.splice(parseInt(btn.dataset.idx), 1);
+        guardarConfig_('MARCAS_DISPOSITIVOS', MARCAS_DISPOSITIVOS);
         renderMarcas();
       });
     });
@@ -3421,6 +3487,7 @@ function openModalMarca(idx, valorActual) {
       dispositivos.forEach(d => { if (d.marca === valorActual) d.marca = nombre; });
       MARCAS_DISPOSITIVOS[idx] = nombre;
     }
+    guardarConfig_('MARCAS_DISPOSITIVOS', MARCAS_DISPOSITIVOS);
     content.style.maxWidth = '';
     closeModal();
     renderMarcas();
@@ -3610,8 +3677,10 @@ function openModalEditarProfesional(profId, targetId) {
       msg.innerHTML = `Completá Apellido y Nombre.`;
       return;
     }
-    prof.nombre = `${apellido}, ${nombre}`;
+    const nombreCompleto = `${apellido}, ${nombre}`;
+    prof.nombre = nombreCompleto;
     prof.dni = dni;
+    actualizarProfesional_(prof.id, nombreCompleto, dni).catch(e => console.error('Error actualizando profesional:', e));
     closeModal();
     renderListaProfesionalesEn(targetId);
   });
@@ -3635,7 +3704,7 @@ function openModalProfesional(onSaved) {
     </div>
   `;
   document.getElementById('mpr-cancelar').addEventListener('click', closeModal);
-  document.getElementById('mpr-guardar').addEventListener('click', () => {
+  document.getElementById('mpr-guardar').addEventListener('click', async () => {
     const apellido = formatearApellido(document.getElementById('mpr-apellido').value.trim());
     const nombre = formatearNombre(document.getElementById('mpr-nombre').value.trim());
     const dni = document.getElementById('mpr-dni').value.trim();
@@ -3645,10 +3714,22 @@ function openModalProfesional(onSaved) {
       msg.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Completá Apellido y Nombre.`;
       return;
     }
-    nuevo = {id:'PR'+(nextProfesionalId++), nombre:`${apellido}, ${nombre}`, dni};
-    profesionales.push(nuevo);
-    closeModal();
-    if (onSaved) onSaved(nuevo);
+    const nombreCompleto = `${apellido}, ${nombre}`;
+    const btnGuardar = document.getElementById('mpr-guardar');
+    btnGuardar.disabled = true;
+    btnGuardar.textContent = 'Guardando...';
+    try {
+      const res = await guardarNuevoProfesional_(nombreCompleto, dni);
+      const nuevo = {id: res.id, nombre: nombreCompleto, dni};
+      closeModal();
+      if (onSaved) onSaved(nuevo);
+    } catch(e) {
+      console.error(e);
+      msg.style.display = 'block';
+      msg.textContent = 'Error al guardar el profesional.';
+      btnGuardar.disabled = false;
+      btnGuardar.textContent = 'Guardar profesional';
+    }
   });
 }
 
@@ -4105,12 +4186,11 @@ async function renderTurnoPaciente(controlActivo, pacienteActivo, estado) {
   view.innerHTML = html;
 
   document.querySelectorAll('.btn-horario').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
+      const datosTurnoPac = {pacienteId:pacienteActivo.id, fecha: btn.dataset.fecha, hora: btn.dataset.hora, controlId: controlActivo.id, origen: 'online'};
+      const resTurnoPac = await reservarTurno_(datosTurnoPac);
+      if (!resTurnoPac.ok) { alert(resTurnoPac.error || 'Ese horario ya está ocupado. Elegí otro.'); renderTurnoPaciente(controlActivo, pacienteActivo, estado); return; }
       turnoSeleccionadoPaciente = {fecha: parseLocalDate(btn.dataset.fecha), hora: btn.dataset.hora};
-      idxPac = turnosReservados.findIndex(t => t.controlId === controlActivo.id);
-      nuevoTurnoPac = {pacienteId:pacienteActivo.id, fecha: turnoSeleccionadoPaciente.fecha, hora: turnoSeleccionadoPaciente.hora, controlId: controlActivo.id, origen: 'online'};
-      if (idxPac >= 0) turnosReservados[idxPac] = nuevoTurnoPac;
-      else turnosReservados.push(nuevoTurnoPac);
       renderTurnoPaciente(controlActivo, pacienteActivo, estado);
     });
   });
