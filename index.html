@@ -1609,7 +1609,7 @@ function openModalAsignarTurno(fechaStr, hora) {
     if (turnosReservados.some(t => toInputDate(t.fecha)===fechaStr && t.hora===hora)) {
       msg.style.display='block'; msg.textContent='Ese horario ya está ocupado.'; return;
     }
-    const controlActivo = controles.filter(c=>c.pacienteId===pacienteId).sort((a,b)=>new Date(b.fechaControl)-new Date(a.fechaControl))[0];
+    const controlActivo = controles.filter(c=>c.pacienteId===pacienteId).sort((a,b)=>diasRestantes(a.fechaControl)-diasRestantes(b.fechaControl))[0];
     turnosReservados.push({
       pacienteId,
       fecha: parseLocalDate(fechaStr),
@@ -1942,7 +1942,7 @@ async function renderForm() {
       const controlAnteriorDiv = document.getElementById('f-control-anterior');
       const ultimoControl = controles
         .filter(c => c.pacienteId === pacienteId)
-        .sort((a,b) => new Date(b.fechaControl) - new Date(a.fechaControl))[0];
+        .sort((a,b) => diasRestantes(a.fechaControl) - diasRestantes(b.fechaControl))[0];
       if (controlAnteriorDiv) {
         if (ultimoControl) {
           controlAnteriorDiv.style.display = 'block';
@@ -2549,7 +2549,7 @@ function renderListaPacientes(filtro='', tiposActivos=[], marcasActivas=[]) {
             ${historial.map(d=>`<div style="border:0.5px solid var(--mr-border); border-radius:8px; padding:0.5rem 0.8rem; background:#fff; font-size:12px; color:var(--mr-text-muted); margin-bottom:4px;">${TIPOS[d.tipo].nombre} · ${d.marca} ${d.modelo}${d.fechaRecambio ? ' · Reemplazado: '+fmtDate(d.fechaRecambio) : ''}</div>`).join('')}` : ''}
         </div>
         ${(() => {
-          const ultControl = controles.filter(c=>c.pacienteId===p.id).sort((a,b)=>new Date(b.fechaControl)-new Date(a.fechaControl))[0];
+          const ultControl = controles.filter(c=>c.pacienteId===p.id).sort((a,b)=>diasRestantes(a.fechaControl)-diasRestantes(b.fechaControl))[0];
           if (!ultControl) return '';
           return `
           <div id="pac-linea-control-${p.id}" style="display:flex; padding:4px 1rem 8px; border-top:0.5px solid var(--mr-border); align-items:center; justify-content:space-between; cursor:pointer;" onclick="toggleControlesPaciente('${p.id}')">
@@ -2623,7 +2623,7 @@ function openModalVistaPaciente(pacienteId) {
     return;
   }
 
-  const controlActivo = controlesPac.reduce((a,b)=>new Date(a.fechaControl)>new Date(b.fechaControl)?a:b);
+  const controlActivo = controlesPac.reduce((a,b)=>diasRestantes(a.fechaControl)<diasRestantes(b.fechaControl)?a:b);
   const dispActivo = dispositivos.find(d=>d.id===controlActivo.dispositivoId);
   if (!dispActivo) {
     tmpView.innerHTML = `<div style="font-size:13px; color:var(--mr-text-muted); text-align:center; padding:1.5rem;">Sin dispositivo activo asociado.</div>`;
@@ -2678,7 +2678,7 @@ function openModalVistaPaciente(pacienteId) {
       </div>`;
   }
 
-  const historial = controlesPac.sort((a,b)=>new Date(b.fechaControl)-new Date(a.fechaControl)).slice(0,3);
+  const historial = controlesPac.sort((a,b)=>diasRestantes(a.fechaControl)-diasRestantes(b.fechaControl)).slice(0,3);
 
   tmpView.innerHTML = `
     <div style="margin-bottom:1rem;">
@@ -3272,7 +3272,7 @@ function toggleControlesPaciente(id) {
   if (det.style.display === 'none') {
     const historialControles = controles
       .filter(c=>c.pacienteId===id)
-      .sort((a,b)=>new Date(b.fechaControl)-new Date(a.fechaControl));
+      .sort((a,b)=>diasRestantes(a.fechaControl)-diasRestantes(b.fechaControl));
     let html = '<div style="font-weight:700; font-size:12px; color:var(--mr-primary); margin-bottom:8px;">Historial de controles</div>';
     historialControles.forEach(c => {
       const prof = profesionales.find(pr=>pr.id===c.profesionalId);
@@ -3749,7 +3749,7 @@ function renderControlesParaEliminar(pacienteId) {
   if (!pacienteId) { container.innerHTML = ''; return; }
   const controlesPac = controles
     .filter(c => c.pacienteId === pacienteId)
-    .sort((a,b) => new Date(b.fechaControl) - new Date(a.fechaControl));
+    .sort((a,b) => diasRestantes(a.fechaControl) - diasRestantes(b.fechaControl));
   if (controlesPac.length === 0) { container.innerHTML = '<div class="empty">Sin controles.</div>'; return; }
   let html = '';
   controlesPac.forEach(c => {
@@ -4155,7 +4155,7 @@ function renderPacienteView() {
       </div>`;
     return;
   }
-  const controlActivo = controlesPac.reduce((a,b)=>new Date(a.fechaControl)>new Date(b.fechaControl)?a:b);
+  const controlActivo = controlesPac.reduce((a,b)=>diasRestantes(a.fechaControl)<diasRestantes(b.fechaControl)?a:b);
   const dispActivo = dispositivos.find(d=>d.id===controlActivo.dispositivoId);
   const tipo = TIPOS[dispActivo.tipo];
   const dias = diasRestantes(controlActivo.proxControl);
@@ -4188,7 +4188,7 @@ function renderPacienteView() {
   // Historial de controles reales del paciente
   const historial = controles
     .filter(c=>c.pacienteId===pacienteActivo.id)
-    .sort((a,b)=>new Date(b.fechaControl)-new Date(a.fechaControl))
+    .sort((a,b)=>diasRestantes(a.fechaControl)-diasRestantes(b.fechaControl))
     .slice(0,3);
 
   // Indicador de batería
