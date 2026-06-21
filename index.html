@@ -2025,8 +2025,9 @@ async function renderForm() {
 
     if (modoEdicion) {
       // Editar control existente
-      editando.fechaControl = fechaControl;
-      editando.proxControl = proxControl;
+      // Normalizar fechas a string para consistencia con Supabase
+      editando.fechaControl = toInputDate(fechaControl);
+      editando.proxControl = toInputDate(proxControl);
       editando.proxMeses = meses;
       editando.bateriaAnios = document.getElementById('f-bateria-anios').value;
       editando.bateriaMeses = document.getElementById('f-bateria-meses').value;
@@ -2035,7 +2036,7 @@ async function renderForm() {
       editando.parametrosTecnicos = {...parametrosTecnicosTemp};
       controlGuardado = editando;
       controlEditandoId = null;
-      actualizarControl_(editando.id,{fechaControl:toInputDate(fechaControl),proxControl:toInputDate(proxControl),proxMeses:meses,bateriaAnios:editando.bateriaAnios,bateriaMeses:editando.bateriaMeses,indicaciones:editando.indicaciones,riesgoManual:editando.riesgoManual,parametrosTecnicos:editando.parametrosTecnicos}).catch(e=>console.error(e));
+      await actualizarControl_(editando.id,{fechaControl:editando.fechaControl,proxControl:editando.proxControl,proxMeses:meses,bateriaAnios:editando.bateriaAnios,bateriaMeses:editando.bateriaMeses,indicaciones:editando.indicaciones,riesgoManual:editando.riesgoManual,parametrosTecnicos:editando.parametrosTecnicos});
     } else {
       // Nuevo control
       const controlesPrevios = controles.filter(c => c.pacienteId===pacienteId && c.dispositivoId===dispositivoId);
