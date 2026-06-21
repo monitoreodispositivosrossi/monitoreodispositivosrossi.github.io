@@ -368,6 +368,25 @@ async function guardarNuevoProfesional_(nombre,dni){const id='PR'+nextProfesiona
 async function actualizarProfesional_(profesionalId,nombre,dni){await sbUpdate('profesionales','id=eq.'+profesionalId,{nombre,dni});const idx=profesionales.findIndex(p=>p.id===profesionalId);if(idx>=0)Object.assign(profesionales[idx],{nombre,dni});}
 async function eliminarProfesional_(id){await sbDelete('profesionales','id=eq.'+id);profesionales=profesionales.filter(p=>p.id!==id);}
 async function guardarConfig_(clave,valor){await sbUpdate('config_general','clave=eq.'+clave,{valor});}
+function iniciarSesion(prof) {
+  profesionalLogueado = prof;
+  document.getElementById('header-user').style.display = 'flex';
+  document.getElementById('user-pill-text').textContent = prof.nombre.split(',')[0];
+  document.getElementById('body-login').style.display = 'none';
+  document.getElementById('body-personal').style.display = 'flex';
+  renderDash();
+}
+
+function cerrarSesion() {
+  profesionalLogueado = null;
+  document.getElementById('header-user').style.display = 'none';
+  document.getElementById('body-personal').style.display = 'none';
+  document.getElementById('body-paciente').style.display = 'none';
+  document.getElementById('body-login').style.display = 'flex';
+  document.getElementById('login-dni').value = '';
+  document.getElementById('login-msg').style.display = 'none';
+}
+
 
 const DIAS_SEMANA = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 const DIAS_SEMANA_CORTOS = ['dom','lun','mar','mié','jue','vie','sáb'];
