@@ -2356,22 +2356,16 @@ function openModalPaciente(onSaved) {
       const fechaImplante = document.getElementById('mp-disp-fechaimplante')?.value || '';
       const motivoImplante = getMotivoValue('mp-disp-motivoimplante');
       const msg = document.getElementById('mp-msg2');
-      const nuevo = {
-        id:'P'+(nextPacienteId++),
+      const _dpData = {
         nombre:`${datosPaciente.apellido}, ${datosPaciente.nombre}`,
-        dni: datosPaciente.dni,
-        tel: datosPaciente.tel,
-        codigo: generarCodigo(),
-        sexo: datosPaciente.sexo,
-        fechaNacimiento: datosPaciente.fechaNacimiento,
-        estado: datosPaciente.estado,
-        consentimiento: datosPaciente.consentimiento
+        dni: datosPaciente.dni, tel: datosPaciente.tel||'',
+        sexo: datosPaciente.sexo, fechaNacimiento: datosPaciente.fechaNacimiento||'',
+        estado: datosPaciente.estado||'Activo', consentimiento: !!datosPaciente.consentimiento
       };
-      pacientes.push(nuevo);
-      dispositivos.push({id:'D'+(nextDispositivoId++), pacienteId:nuevo.id, tipo, marca, modelo, serie, subtipo, fechaImplante, motivoImplante, activo:true});
-      closeModal();
-      if (onSaved) onSaved(nuevo);
-    });
+      const _rPP = await guardarNuevoPaciente_(_dpData);
+      const nuevo = {..._dpData, id:_rPP.id, codigo:_rPP.codigo};
+      const _rDP = await guardarNuevoDispositivo_(nuevo.id, {tipo, marca, modelo, serie, subtipo, fechaImplante, motivoImplante}, false);
+      if (onSaved) onSaved(nuevo);   });
   }
 
   mostrarPaso1();
@@ -2945,16 +2939,20 @@ function openModalParametrosTecnicos(disp) {
       if (!tieneAlguno) return '';
 
       // Determinar qué subparams aplican
+      // Determinar canales disponibles según el perfil
+      const tieneA  = getParamsParaPerfil(perfil).some(p => p.includes('Salida A') || p.includes('Umbral A') || p.includes('Sensibilidad') && p.includes('A'));
+      const tieneVD = getParamsParaPerfil(perfil).some(p => p.includes('Salida VD') || p.includes('Umbral VD'));
+      const tieneVI = getParamsParaPerfil(perfil).some(p => p.includes('Salida VI') || p.includes('VI'));
       const subVisible = g.subparams.filter(s => {
         if (g.especial === 'salida') {
-          if (s.label === 'A')  return paramsDelPerfil.has('Salida A (autocaptura/manual: valor)');
-          if (s.label === 'VD') return paramsDelPerfil.has('Salida VD (autocaptura/manual: valor)');
-          if (s.label === 'VI') return paramsDelPerfil.has('Salida VI');
+          if (s.label.startsWith('A'))  return paramsDelPerfil.has('Salida A (autocaptura/manual: valor)') || tieneA;
+          if (s.label.startsWith('VD')) return paramsDelPerfil.has('Salida VD (autocaptura/manual: valor)') || tieneVD;
+          if (s.label.startsWith('VI')) return paramsDelPerfil.has('Salida VI') || tieneVI;
         }
         if (g.especial === 'sensibilidad') {
-          if (s.label === 'A')  return paramsDelPerfil.has('Sensibilidad (automática/manual: valor)') && getParamsParaPerfil(perfil).some(p=>p.includes('Salida A')||p.includes('Umbral A'));
-          if (s.label === 'VD') return paramsDelPerfil.has('Sensibilidad (automática/manual: valor)') && getParamsParaPerfil(perfil).some(p=>p.includes('Salida VD')||p.includes('Umbral VD'));
-          if (s.label === 'VI') return paramsDelPerfil.has('Salida VI');
+          if (s.label.startsWith('A'))  return paramsDelPerfil.has('Sensibilidad (automática/manual: valor)') && tieneA;
+          if (s.label.startsWith('VD')) return paramsDelPerfil.has('Sensibilidad (automática/manual: valor)') && tieneVD;
+          if (s.label.startsWith('VI')) return paramsDelPerfil.has('Sensibilidad (automática/manual: valor)') && tieneVI;
         }
         return false;
       });
@@ -3353,13 +3351,17 @@ function openModalEditarDispositivo(pacienteId) {
     }, 0);
   }
   document.getElementById('ed-guardar').addEventListener('click', () => {
-    disp.tipo = document.getElementById('ed-tipo').value;
-    disp.marca = document.getElementById('ed-marca').value;
-    disp.modelo = document.getElementById('ed-modelo').value.trim();
-    disp.serie = document.getElementById('ed-serie')?.value.trim() || '';
-    disp.subtipo = document.getElementById('ed-subtipo')?.value || '';
-    disp.fechaImplante = document.getElementById('ed-fechaimplante')?.value || '';
-    disp.motivoImplante = getMotivoValue('ed-motivoimplante');
+    const cambiosDisp = {
+      tipo: document.getElementById('ed-tipo').value,
+      marca: document.getElementById('ed-marca').value,
+      modelo: document.getElementById('ed-modelo').value.trim(),
+      serie: document.getElementById('ed-serie')?.value.trim() || '',
+      subtipo: document.getElementById('ed-subtipo')?.value || '',
+      fechaImplante: document.getElementById('ed-fechaimplante')?.value || '',
+      motivoImplante: getMotivoValue('ed-motivoimplante')
+    };
+    Object.assign(disp, cambiosDisp);
+    actualizarDispositivo_(disp.id, cambiosDisp).catch(e=>console.error(e));
     closeModal();
     const _lp = document.getElementById("lista-pac"); if (_lp) renderListaPacientes();
   });
@@ -3456,9 +3458,7 @@ function openModalRecambio(pacienteId) {
     const msg = document.getElementById('rc-msg');
     // Parsear fecha local para evitar bug UTC
     const fechaLocal = fecha ? (() => { const [y,m,d] = fecha.split('-'); return new Date(+y, +m-1, +d); })() : new Date();
-    const actual = dispositivos.find(d=>d.pacienteId===pacienteId && d.activo);
-    if (actual) { actual.activo=false; actual.fechaRecambio=fechaLocal; }
-    dispositivos.push({id:'D'+(nextDispositivoId++), pacienteId, tipo, marca, modelo, serie, subtipo, fechaImplante: fecha, motivoImplante, activo:true});
+    const _rRC = await guardarNuevoDispositivo_(pacienteId, {tipo, marca, modelo, serie, subtipo, fechaImplante:fecha, motivoImplante}, true);
     closeModal();
     const _lp = document.getElementById("lista-pac"); if (_lp) renderListaPacientes();
   });
@@ -3492,7 +3492,10 @@ function openModalNuevoDispositivo(pacienteId, onSaved) {
     const marca=document.getElementById('nd-marca').value;
     const modelo=document.getElementById('nd-modelo').value.trim();
     const subtipo=document.getElementById('nd-subtipo')?.value||'';
-    dispositivos.push({id:'D'+(nextDispositivoId++), pacienteId, tipo, marca, modelo, subtipo, activo:true});
+    const _rND = await guardarNuevoDispositivo_(pacienteId, {tipo, marca, modelo, subtipo,
+      fechaImplante: document.getElementById('nd-fechaimplante')?.value||'',
+      motivoImplante: document.getElementById('nd-motivoimplante')?.value||''}, false);
+    dispositivos.push({id:_rND.id, pacienteId, tipo, marca, modelo, subtipo, activo:true});
     closeModal();
     if (onSaved) onSaved();
   });
