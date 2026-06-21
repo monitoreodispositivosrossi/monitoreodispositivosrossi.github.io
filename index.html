@@ -4654,10 +4654,9 @@ actualizarTextoInstitucional();
 })();
 
 
-actualizarTextoInstitucional();
 (async function() {
   document.getElementById('body-login').style.display = 'flex';
-  try { await cargarDataset(); }
+  try { await cargarDataset(); actualizarTextoInstitucional(); }
   catch(e) {
     console.error('Error al cargar:', e);
     document.getElementById('login-msg').style.display = 'block';
