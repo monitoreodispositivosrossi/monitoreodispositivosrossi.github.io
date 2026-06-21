@@ -960,6 +960,7 @@ function getControlesPendientes() {
   const pendientes = [];
 
   pacientes.forEach(pac => {
+    if (pac.estado !== 'Activo') return; // No generar pendientes para trasladados, fallecidos, etc.
     const controlesPaciente = controles.filter(c=>c.pacienteId===pac.id);
     if (controlesPaciente.length === 0) return;
 
