@@ -4123,7 +4123,7 @@ function getDatosInvestigacion() {
       codigo: p.paciente.codigo,
       sexo: p.paciente.sexo || '-',
       edad: calcularEdad(p.paciente.fechaNacimiento) ?? '-',
-      tipoDispositivo: TIPOS[p.dispositivo.tipo] || {nombre:p.dispositivo.tipo||'?', lapso:12}.nombre,
+      tipoDispositivo: (TIPOS[p.dispositivo.tipo] || {nombre:p.dispositivo.tipo||'?', lapso:12}).nombre,
       fase: p.fase,
       fechaProgramada: p.fechaProgramada,
       fechaRealizada: null,
