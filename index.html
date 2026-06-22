@@ -1851,8 +1851,17 @@ async function renderForm() {
           <input type="date" id="f-fechacontrol">
         </div>
         <div class="field">
-          <label>Próximo control (meses)</label>
-          <input type="number" id="f-proxmeses" min="1" step="1" value="6">
+          <label>Próximo control</label>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <div style="flex:1;">
+              <input type="number" id="f-proxmeses" min="0" step="1" value="6" style="width:100%;">
+              <div style="font-size:11px; color:var(--mr-text-muted); margin-top:2px;">meses</div>
+            </div>
+            <div style="flex:1;">
+              <input type="number" id="f-proxsemanas" min="0" max="3" step="1" value="0" style="width:100%;">
+              <div style="font-size:11px; color:var(--mr-text-muted); margin-top:2px;">semanas</div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="preview" id="f-preview"></div>
@@ -1867,7 +1876,8 @@ async function renderForm() {
 
   document.getElementById('f-fechacontrol').value = modoEdicion ? toInputDate(editando.fechaControl) : toInputDate(new Date());
   if (modoEdicion) {
-    document.getElementById('f-proxmeses').value = editando.proxMeses || 6;
+    document.getElementById('f-proxmeses').value = Math.floor(editando.proxMeses || 6);
+    document.getElementById('f-proxsemanas').value = Math.round(((editando.proxMeses||6) % 1) * 2);
     document.getElementById('f-bateria-anios').value = editando.bateriaAnios || '';
     document.getElementById('f-bateria-meses').value = editando.bateriaMeses || '';
     document.getElementById('f-indicaciones').value = editando.indicaciones || '';
@@ -1878,12 +1888,14 @@ async function renderForm() {
   function updatePreview() {
     const fechaControlVal = document.getElementById('f-fechacontrol').value;
     const meses = parseInt(document.getElementById('f-proxmeses').value) || 0;
+    const semanas = parseInt(document.getElementById('f-proxsemanas')?.value) || 0;
     const fechaControl = fechaControlVal ? parseLocalDate(fechaControlVal) : new Date();
     const prox = addMonths(fechaControl, meses);
-    document.getElementById('f-preview').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Próximo control: <strong>${fmtMesAnio(prox)}</strong> (${meses} ${meses===1?'mes':'meses'} desde la fecha de control)`;
+    document.getElementById('f-preview').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Próximo control: <strong>${fmtMesAnio(prox)}</strong> (${meses > 0 ? meses+' '+(meses===1?'mes':'meses') : ''}${meses > 0 && semanas > 0 ?' y ':''}${semanas > 0 ? semanas+' '+(semanas===1?'semana':'semanas') : ''} desde la fecha de control)`;
   }
   document.getElementById('f-fechacontrol').addEventListener('change', updatePreview);
   document.getElementById('f-proxmeses').addEventListener('input', updatePreview);
+  document.getElementById('f-proxsemanas')?.addEventListener('input', updatePreview);
 
   function updateVidaPreview() {
     const anios = parseInt(document.getElementById('f-bateria-anios')?.value)||0;
@@ -2046,9 +2058,12 @@ async function renderForm() {
     const mesesVal = document.getElementById('f-proxmeses').value;
     const msg = document.getElementById('f-msg');
 
-    if (!fechaControlVal || !mesesVal || parseInt(mesesVal) < 1) {
+    const semanasVal = document.getElementById('f-proxsemanas')?.value || '0';
+    const mesesInt = parseInt(mesesVal) || 0;
+    const semanasInt = parseInt(semanasVal) || 0;
+    if (!fechaControlVal || (mesesInt === 0 && semanasInt === 0)) {
       msg.className = 'msg err';
-      msg.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Completá la fecha del control y los meses para el próximo control (entero ≥ 1).`;
+      msg.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Completá la fecha del control y al menos 1 mes o 1 semana para el próximo control.`;
       return;
     }
 
@@ -2061,7 +2076,7 @@ async function renderForm() {
 
     const fechaControl = parseLocalDate(fechaControlVal);
     const meses = parseInt(mesesVal);
-    const proxControl = addMonths(fechaControl, meses);
+    const proxControl = new Date(addMonths(fechaControl, meses).getTime() + semanas * 7 * 86400000);
 
     const dispositivoId = document.getElementById('f-dispositivo').value;
 
@@ -2072,7 +2087,7 @@ async function renderForm() {
       // Normalizar fechas a string para consistencia con Supabase
       editando.fechaControl = toInputDate(fechaControl);
       editando.proxControl = toInputDate(proxControl);
-      editando.proxMeses = meses;
+      editando.proxMeses = proxMesesTotal;
       editando.bateriaAnios = document.getElementById('f-bateria-anios').value;
       editando.bateriaMeses = document.getElementById('f-bateria-meses').value;
       editando.indicaciones = document.getElementById('f-indicaciones').value;
@@ -2114,7 +2129,7 @@ async function renderForm() {
         fechaProgramada: toInputDate(fechaProgramada),
         fechaControl: toInputDate(fechaControl),
         proxControl: toInputDate(proxControl),
-        proxMeses: meses,
+        proxMeses: proxMesesTotal,
         bateriaAnios: document.getElementById('f-bateria-anios').value,
         bateriaMeses: document.getElementById('f-bateria-meses').value,
         eriProximo: 'No',
@@ -4269,10 +4284,11 @@ function showView(key) {
     if (ffc) {
       ffc.value = toInputDate(new Date());
       const fpm = document.getElementById('f-proxmeses'); if (fpm) fpm.value = '6';
+      const fpsem = document.getElementById('f-proxsemanas'); if (fpsem) fpsem.value = '0';
       const fba = document.getElementById('f-bateria-anios'); if (fba) fba.value = '';
       const fbm = document.getElementById('f-bateria-meses'); if (fbm) fbm.value = '';
       const vp  = document.getElementById('f-vida-preview');  if (vp)  vp.innerHTML = '';
-      const fps = document.getElementById('f-params-resumen'); if (fps) fps.style.display = 'none';
+      const fpr = document.getElementById('f-params-resumen'); if (fpr) fpr.style.display = 'none';
       const frm = document.getElementById('f-riesgo-manual'); if (frm) frm.checked = false;
       const fi  = document.getElementById('f-indicaciones');  if (fi)  fi.value = '';
       parametrosTecnicosTemp = {};
