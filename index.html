@@ -2359,7 +2359,10 @@ function openModalPaciente(onSaved) {
       const _rPP = await guardarNuevoPaciente_(_dpData);
       const nuevo = {..._dpData, id:_rPP.id, codigo:_rPP.codigo};
       const _rDP = await guardarNuevoDispositivo_(nuevo.id, {tipo, marca, modelo, serie, subtipo, fechaImplante, motivoImplante}, false);
-      if (onSaved) onSaved(nuevo);   });
+      content.style.maxWidth = '';
+      closeModal();
+      if (onSaved) onSaved(nuevo);
+    });
   }
 
   mostrarPaso1();
