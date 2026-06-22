@@ -1018,8 +1018,12 @@ function getRecuperacionSeguimiento() {
 function calcularRiesgo(c) {
   const disp = dispositivos.find(d=>d.id===c.dispositivoId) || {};
   const retraso = calcularRetrasoMeses(c);
+  // También considerar si el próximo control lleva mucho tiempo vencido (paciente pendiente)
+  const diasVencido = -diasRestantes(c.proxControl); // positivo si está vencido
+  const mesesVencido = Math.floor(diasVencido / 30);
   const motivos = [];
   if (retraso >= 2) motivos.push(`Retraso de control ≥ 2 meses (${retraso} meses)`);
+  if (mesesVencido >= 2) motivos.push(`Sin control hace ≥ 2 meses (${mesesVencido} meses vencido)`);
   if (eriMenorUnAnio(c)) motivos.push('Batería próxima a ERI (< 1 año)');
   if (disp.tipo === 'T2' || disp.tipo === 'T4') motivos.push('Portador de CDI');
   if (c.riesgoManual) motivos.push('Criterio del equipo tratante');
