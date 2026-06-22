@@ -1310,17 +1310,11 @@ async function openModalAccion(controlId, tipo) {
     const turnoVal = document.getElementById('acc-turno').value;
     if (turnoVal) {
       const [fechaStr, hora] = turnoVal.split('|');
-      // Reemplazar turno anterior si existe
-      const idx = turnosReservados.findIndex(t => t.controlId === controlId);
-      const nuevoTurno = {
-        pacienteId: control.pacienteId,
-        fecha: parseLocalDate(fechaStr),
-        hora,
-        controlId,
-        origen: 'presencial'
-      };
-      if (idx >= 0) turnosReservados[idx] = nuevoTurno;
-      else turnosReservados.push(nuevoTurno);
+      // Cancelar turno anterior si existe
+      const turnoAnterior = turnosReservados.find(t => t.controlId === controlId);
+      if (turnoAnterior) await cancelarTurno_(control.pacienteId, turnoAnterior.fecha, turnoAnterior.hora);
+      // Reservar nuevo turno en Supabase
+      await reservarTurno_({pacienteId: control.pacienteId, fecha: fechaStr, hora, controlId, origen: 'presencial'});
     }
     registrarAccion(controlId, tipo, resultado);
     closeModal();
