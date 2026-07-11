@@ -2432,10 +2432,16 @@ function renderPacientes() {
   view.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
       <h3 style="margin:0;">Pacientes</h3>
-      <button id="btn-nuevo-pac" class="btn-primary" style="display:flex; align-items:center; gap:6px;">
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button id="btn-actualizar-pac" class="btn-secondary" style="display:flex; align-items:center; gap:6px;" title="Actualizar lista">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Actualizar
+        </button>
+        <button id="btn-nuevo-pac" class="btn-primary" style="display:flex; align-items:center; gap:6px;">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Nuevo paciente
       </button>
+      </div>
     </div>
     <div style="margin-bottom:1rem; position:relative;">
       <input type="text" id="pac-buscar" placeholder="Buscar por nombre, DNI, código, marca o modelo..." style="padding-left:36px;">
@@ -2459,6 +2465,13 @@ function renderPacientes() {
     <div id="lista-pac"></div>
   `;
   renderListaPacientes();
+  document.getElementById('btn-actualizar-pac').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-actualizar-pac');
+    btn.disabled = true;
+    btn.textContent = 'Actualizando...';
+    await cargarDataset();
+    renderPacientes();
+  });
   document.getElementById('btn-nuevo-pac').addEventListener('click', () => {
     openModalPaciente((nuevo) => { renderListaPacientes(); });
   });
