@@ -2644,6 +2644,23 @@ function renderListaPacientes(filtro='', tiposActivos=[], marcasActivas=[]) {
   document.querySelectorAll('.btn-ver-pac').forEach(btn => {
     btn.addEventListener('click', () => openModalVistaPaciente(btn.dataset.pac));
   });
+  document.querySelectorAll('.btn-wa-pac').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const appUrl = window.location.href.split('?')[0];
+      const nombre = btn.dataset.nombre.split(', ');
+      const nombreAmigable = nombre.length > 1 ? nombre[1] : btn.dataset.nombre;
+      const telLimpio = (btn.dataset.tel || '').replace(/\D/g, '');
+      const waBase = telLimpio ? 'https://wa.me/549' + telLimpio : 'https://wa.me/';
+      const texto = `Hola, ${nombreAmigable}. Le escribimos desde el ${CONFIG_INSTITUCION.servicio} del ${CONFIG_INSTITUCION.institucion}.
+
+Le compartimos el acceso a MODI ROSSI, el portal de monitoreo de su dispositivo cardíaco, donde puede consultar información sobre su dispositivo, su próximo control y reservar un turno.
+
+${appUrl}
+
+Para ingresar use su número de DNI.`;
+      window.open(waBase + '?text=' + encodeURIComponent(texto), '_blank');
+    });
+  });
   document.querySelectorAll('.btn-nuevo-control-pac').forEach(btn => {
     btn.addEventListener('click', () => {
       showView('form');
