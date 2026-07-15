@@ -1,0 +1,24 @@
+{
+  "name": "MODI ROSSI — Profesionales",
+  "short_name": "MODI ROSSI",
+  "description": "Portal de monitoreo de dispositivos cardíacos del HIGA Prof. Dr. Rodolfo Rossi",
+  "start_url": "https://monitoreodispositivosrossi.github.io/?vista=personal",
+  "display": "standalone",
+  "background_color": "#C2185B",
+  "theme_color": "#1a3a5c",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

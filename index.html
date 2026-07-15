@@ -2,7 +2,14 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-  <link rel="manifest" href="manifest.json">
+  <script>
+    // Cargar manifest según el rol
+    const _isPersonal = new URLSearchParams(window.location.search).get('vista') === 'personal';
+    const _manifestLink = document.createElement('link');
+    _manifestLink.rel = 'manifest';
+    _manifestLink.href = _isPersonal ? 'manifest-personal.json' : 'manifest.json';
+    document.head.appendChild(_manifestLink);
+  </script>
   <meta name="theme-color" content="#1a3a5c">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
