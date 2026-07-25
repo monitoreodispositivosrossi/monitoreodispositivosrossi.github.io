@@ -1842,7 +1842,7 @@ async function renderForm() {
       <div class="field">
         <label>Vida restante de batería (hasta ERI)</label>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-          <input type="number" id="f-bateria-anios" min="0" step="1" placeholder="Años">
+          <input type="number" id="f-bateria-anios" min="0" step="0.1" placeholder="Años">
           <input type="number" id="f-bateria-meses" min="0" step="1" placeholder="Meses">
         </div>
         <div id="f-vida-preview" style="font-size:12px; color:var(--mr-text-muted); margin-top:4px;"></div>
@@ -1899,7 +1899,7 @@ async function renderForm() {
   document.getElementById('f-proxmeses').addEventListener('input', updatePreview);
 
   function updateVidaPreview() {
-    const anios = parseInt(document.getElementById('f-bateria-anios')?.value)||0;
+    const anios = parseFloat(document.getElementById('f-bateria-anios')?.value)||0;
     const meses = parseInt(document.getElementById('f-bateria-meses')?.value)||0;
     const preview = document.getElementById('f-vida-preview');
     if (!preview) return;
