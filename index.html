@@ -925,10 +925,10 @@ function calcularRetrasoMeses(c) {
 }
 
 function vidaBateriaMeses(c) {
-  const anios = c.bateriaAnios !== '' && c.bateriaAnios !== null && c.bateriaAnios !== undefined ? parseInt(c.bateriaAnios) : null;
+  const anios = c.bateriaAnios !== '' && c.bateriaAnios !== null && c.bateriaAnios !== undefined ? parseFloat(c.bateriaAnios) : null;
   const meses = c.bateriaMeses !== '' && c.bateriaMeses !== null && c.bateriaMeses !== undefined ? parseInt(c.bateriaMeses) : null;
   if (anios === null && meses === null) return null;
-  return (anios||0)*12 + (meses||0);
+  return Math.round((anios||0)*12 + (meses||0));
 }
 
 function eriMenorUnAnio(c) {
