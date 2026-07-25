@@ -928,7 +928,7 @@ function vidaBateriaMeses(c) {
   const anios = c.bateriaAnios !== '' && c.bateriaAnios !== null && c.bateriaAnios !== undefined ? parseFloat(c.bateriaAnios) : null;
   const meses = c.bateriaMeses !== '' && c.bateriaMeses !== null && c.bateriaMeses !== undefined ? parseInt(c.bateriaMeses) : null;
   if (anios === null && meses === null) return null;
-  return Math.round((anios||0)*12 + (meses||0));
+  return Math.round(((anios||0)*12 + (meses||0)) * 10) / 10;
 }
 
 function eriMenorUnAnio(c) {
@@ -940,7 +940,7 @@ function eriMenorUnAnio(c) {
 }
 
 function fmtVidaBateria(c) {
-  const anios = parseInt(c.bateriaAnios)||0;
+  const anios = parseFloat(c.bateriaAnios)||0;
   const meses = parseInt(c.bateriaMeses)||0;
   if (!anios && !meses) return '-';
   const partes = [];
@@ -1903,7 +1903,7 @@ async function renderForm() {
     const meses = parseInt(document.getElementById('f-bateria-meses')?.value)||0;
     const preview = document.getElementById('f-vida-preview');
     if (!preview) return;
-    const total = anios*12 + meses;
+    const total = Math.round((anios*12 + meses) * 10) / 10;
     preview.innerHTML = total ? `Total: <strong>${total} ${total===1?'mes':'meses'}</strong> hasta ERI` : '';
   }
   document.getElementById('f-bateria-anios').addEventListener('input', updateVidaPreview);
