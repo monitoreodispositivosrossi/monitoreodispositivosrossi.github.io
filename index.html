@@ -3278,7 +3278,7 @@ function generarTextoResumen(controlId) {
   const todosParams = [checkTexto, paramsTexto].filter(Boolean).join('\n');
 
   let texto = '';
-  texto += `CONTROL DE DISPOSITIVO DE ESTIMULACIÓN CARDÍACA DE ${pac ? pac.nombre.split(', ').reverse().join(' ').toUpperCase() : '—'}\n\n`;
+  texto += `CONTROL DE DISPOSITIVO DE ESTIMULACIÓN CARDÍACA DE ${pac ? pac.nombre.split(', ').reverse().join(' ').toUpperCase() : '—'} - GENERADO POR MODI ROSSI\n\n`;
   texto += `Paciente${sexoTexto ? ' de sexo ' + sexoTexto : ''}${edad ? ' de ' + edad + ' años de edad' : ''}.`;
   texto += `\nTipo de dispositivo: ${tipo}${subtipo ? ' ' + subtipo : ''}`;
   texto += `\nMarca: ${(disp?.marca || '—').toUpperCase()}`;
