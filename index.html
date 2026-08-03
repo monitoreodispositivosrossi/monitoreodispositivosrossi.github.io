@@ -463,7 +463,7 @@ async function cargarDataset() {
   pacientes     = (pa||[]).map(mapPac);
   dispositivos  = (di||[]).map(mapDisp);
   controles     = (co||[]).map(mapCtrl);
-  turnosReservados  = (tu||[]).map(mapTurno);
+  turnosReservados  = (tu||[]).map(mapTurno).filter(t => { const hoy = toInputDate(new Date()); return t.fecha >= hoy; });
   accionesContacto  = (ac||[]).map(mapAccion);
   (cfg||[]).forEach(row => {
     const v = row.valor;
