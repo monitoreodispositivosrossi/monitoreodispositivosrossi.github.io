@@ -2190,7 +2190,14 @@ async function renderForm() {
           Ver resumen HC
         </button>
         <button id="modal-ctrl-pac" class="btn-primary" style="flex:1;">Ir a Pacientes</button>
-      </div>
+       </div>
+       <div style="margin-top:8px;">
+         <button id="modal-ctrl-nuevo" class="btn-secondary" style="width:100%; display:flex; align-items:center; justify-content:center; gap:6px;">
+           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+           Nuevo control para este paciente
+         </button>
+       </div>
+     \`;
     `;
     document.getElementById('modal-ctrl-hc').addEventListener('click', () => {
       content.style.maxWidth = '';
@@ -2203,6 +2210,18 @@ async function renderForm() {
       closeModal();
       _submitRunning = false;
       showView('pac');
+    });
+    document.getElementById('modal-ctrl-nuevo').addEventListener('click', () => {
+      content.style.maxWidth = '';
+      closeModal();
+      _submitRunning = false;
+      // Navegar al formulario con el mismo paciente pre-seleccionado
+      const _pacId = controlGuardado.pacienteId;
+      showView('form');
+      setTimeout(() => {
+        setPacienteSelector('f-paciente', _pacId);
+        document.getElementById('f-paciente').dispatchEvent(new Event('change'));
+      }, 100);
     });
     // El formulario se resetea automáticamente en showView cuando se navega a otra vista
   });
