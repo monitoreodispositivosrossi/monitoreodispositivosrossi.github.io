@@ -215,8 +215,13 @@
     .hide-mobile { display:none !important; }
   }
 
-  @media (max-width: 480px) {
-    .stat-grid { grid-template-columns:1fr 1fr; }
+  @media (max-width: 600px) {
+    .stat-grid { grid-template-columns: repeat(6, 1fr); }
+    .stat-grid .stat-card:nth-child(1) { grid-column: span 3; }
+    .stat-grid .stat-card:nth-child(2) { grid-column: span 3; }
+    .stat-grid .stat-card:nth-child(3) { grid-column: span 2; }
+    .stat-grid .stat-card:nth-child(4) { grid-column: span 2; }
+    .stat-grid .stat-card:nth-child(5) { grid-column: span 2; }
     .content { padding:0.75rem; }
     h3 { font-size:15px; }
   }
@@ -1133,6 +1138,7 @@ function renderDash() {
   let html = `
     <h3>Panel de control</h3>
     <div class="stat-grid">
+      <div class="stat-card"><div class="stat-label">Pacientes registrados</div><div class="stat-num">${pacientes.filter(p=>p.estado==='Activo').length}</div></div>
       <div class="stat-card"><div class="stat-label">Controles registrados</div><div class="stat-num">${controles.length}</div></div>
       <div class="stat-card"><div class="stat-label">Recordatorios esta semana</div><div class="stat-num">${recordatorios.length}</div></div>
       <div class="stat-card"><div class="stat-label">Con turno asignado</div><div class="stat-num">${conTurno.length}</div></div>
