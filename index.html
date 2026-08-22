@@ -953,7 +953,10 @@ function esSeguimientoPerdido(c) {
   // Si no hay control siguiente → días entre proxControl y hoy
   const controlesPosteriores = controles
     .filter(x => x.pacienteId === c.pacienteId
+      && x.id !== c.id
+      && x.fechaControl
       && diasRestantes(x.fechaControl) > diasRestantes(c.fechaControl));
+  if (c.fechaControl === '2024-02-07') console.log('[SEG PERDIDO] c:', c.id, 'fc:', c.fechaControl, 'posteriores:', controlesPosteriores.length, controlesPosteriores.map(x=>x.fechaControl));
   if (controlesPosteriores.length > 0) {
     const siguiente = controlesPosteriores
       .reduce((a,b) => diasRestantes(a.fechaControl) < diasRestantes(b.fechaControl) ? a : b);
