@@ -4187,10 +4187,14 @@ function calcularIndicadores() {
   fases.forEach(fase => {
     // Realizados con fechaRealizada
     const realizados = datos.filter(d => d.tipoRegistro === 'Realizado' && d.fase === fase);
-    // Pendientes con > 30 días de retraso
-    const pendientesVencidos = datos.filter(d => d.tipoRegistro === 'Pendiente' && d.fase === fase && d.retrasoDias > 30);
+    // Pendientes cuya fecha programada ya venció hace más de 30 días
+    const pendientesVencidos = datos.filter(d =>
+      d.tipoRegistro === 'Pendiente' && d.fase === fase &&
+      d.retrasoDias !== null && d.retrasoDias > 30
+    );
 
     // ── Adherencia ──
+    // Denominador: realizados + pendientes con proxControl vencido > 30 días
     const totalAdherencia = realizados.length + pendientesVencidos.length;
     const adherentes = realizados.filter(d => d.adherente === 'Sí').length;
     const pctAdherencia = totalAdherencia > 0 ? (adherentes / totalAdherencia * 100).toFixed(1) : '-';
