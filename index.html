@@ -98,7 +98,7 @@
   .content { flex:1; padding:1.25rem 1.5rem; min-width:0; overflow-y:auto; height:100%; }
   h3 { color:var(--mr-primary); font-weight:700; font-size:16px; margin:0 0 1rem; }
   .stat-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); gap:12px; margin-bottom:1.5rem; }
-  .stat-card { background:var(--mr-bg); border-radius:8px; padding:1rem; }
+  .stat-card { background:var(--mr-bg); border-radius:8px; padding:1rem; text-align:center; }
   .stat-label { font-size:12px; color:var(--mr-text-muted); min-height:2.4em; line-height:1.2; }
   .stat-num { font-size:22px; font-weight:700; color:var(--mr-primary); margin-top:2px; }
   .section-label { font-size:13px; color:var(--mr-text-muted); margin:1.25rem 0 0.75rem; font-weight:500; }
@@ -595,6 +595,8 @@ async function guardarNuevoControl_(datos) {
   };
   await sbInsert('controles', row);
   controles.push(mapCtrl(row));
+  // Recalcular fechas programadas de todos los controles del paciente/dispositivo
+  await recalcularFechasProgramadas(datos.pacienteId, datos.dispositivoId);
   return { id };
 }
 async function actualizarControl_(controlId, cambios) {
@@ -613,6 +615,11 @@ async function actualizarControl_(controlId, cambios) {
   await sbUpdate('controles','id=eq.'+controlId, upd);
   const idx = controles.findIndex(c => c.id === controlId);
   if (idx >= 0) Object.assign(controles[idx], cambios);
+  // Recalcular fechas programadas si cambió la fecha del control o el proxControl
+  if (cambios.fechaControl !== undefined || cambios.proxControl !== undefined) {
+    const ctrl = controles.find(c => c.id === controlId);
+    if (ctrl) await recalcularFechasProgramadas(ctrl.pacienteId, ctrl.dispositivoId);
+  }
 }
 async function eliminarControl_(id) {
   await sbDelete('acciones_contacto','control_id=eq.'+id);
@@ -622,6 +629,29 @@ async function eliminarControl_(id) {
   accionesContacto = accionesContacto.filter(a => a.controlId !== id);
   turnosReservados = turnosReservados.filter(t => t.controlId !== id);
 }
+
+async function recalcularFechasProgramadas(pacienteId, dispositivoId) {
+  // Obtener todos los controles del paciente/dispositivo y ordenar por fechaControl
+  const ctrlsPac = controles
+    .filter(c => c.pacienteId === pacienteId && c.dispositivoId === dispositivoId)
+    .sort((a, b) => diasRestantes(b.fechaControl) - diasRestantes(a.fechaControl));
+  // ctrlsPac[0] es el más reciente, ctrlsPac[last] es el más antiguo
+  // Ordenar de más antiguo a más reciente
+  const ordenados = [...ctrlsPac].reverse();
+  for (let i = 0; i < ordenados.length; i++) {
+    const c = ordenados[i];
+    const nuevaFechaProg = i === 0
+      ? c.fechaControl  // primer control → fechaProgramada = fechaControl
+      : ordenados[i-1].proxControl; // siguientes → proxControl del anterior
+    if (nuevaFechaProg && nuevaFechaProg !== c.fechaProgramada) {
+      // Actualizar en memoria
+      c.fechaProgramada = nuevaFechaProg;
+      // Actualizar en Supabase
+      await sbUpdate('controles', 'id=eq.' + c.id, { fecha_programada: nuevaFechaProg });
+    }
+  }
+}
+
 
 // ===================== GUARDADO: TURNOS =====================
 async function reservarTurno_(datos) {
