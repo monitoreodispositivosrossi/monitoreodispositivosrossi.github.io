@@ -4178,11 +4178,142 @@ function openModalProfesional(onSaved) {
 }
 
 /* ===================== INVESTIGACIÓN ===================== */
+
+function calcularIndicadores() {
+  const datos = getDatosInvestigacion();
+  const fases = ['Retrospectivo', 'Prospectivo'];
+  const result = {};
+
+  fases.forEach(fase => {
+    // Realizados con fechaRealizada
+    const realizados = datos.filter(d => d.tipoRegistro === 'Realizado' && d.fase === fase);
+    // Pendientes con > 30 días de retraso
+    const pendientesVencidos = datos.filter(d => d.tipoRegistro === 'Pendiente' && d.fase === fase && d.retrasoDias > 30);
+
+    // ── Adherencia ──
+    const totalAdherencia = realizados.length + pendientesVencidos.length;
+    const adherentes = realizados.filter(d => d.adherente === 'Sí').length;
+    const pctAdherencia = totalAdherencia > 0 ? (adherentes / totalAdherencia * 100).toFixed(1) : '-';
+
+    // ── Retraso (solo controles realizados con retrasoAjustado > 0) ──
+    const conRetraso = realizados
+      .filter(d => d.retrasoAjustado !== null && d.retrasoAjustado !== '-' && Number(d.retrasoAjustado) > 0)
+      .map(d => Number(d.retrasoAjustado));
+
+    let promedio = '-', mediana = '-';
+    if (conRetraso.length > 0) {
+      promedio = (conRetraso.reduce((a,b) => a+b, 0) / conRetraso.length).toFixed(1);
+      const sorted = [...conRetraso].sort((a,b) => a-b);
+      const mid = Math.floor(sorted.length / 2);
+      mediana = sorted.length % 2 === 0
+        ? ((sorted[mid-1] + sorted[mid]) / 2).toFixed(1)
+        : sorted[mid].toFixed(1);
+    }
+
+    result[fase] = { totalAdherencia, adherentes, pctAdherencia, conRetraso: conRetraso.length, promedio, mediana };
+  });
+
+  // ── Recuperación del seguimiento ──
+  const recuperacion = getRecuperacionSeguimiento();
+  const totalPerdidos = recuperacion.length;
+  const recuperados = recuperacion.filter(r => r.recuperado).length;
+  const pctRecuperacion = totalPerdidos > 0 ? (recuperados / totalPerdidos * 100).toFixed(1) : '-';
+
+  return { fases: result, recuperacion: { totalPerdidos, recuperados, pctRecuperacion } };
+}
+
+
+function renderIndicadores() {
+  const cont = document.getElementById('seccion-indicadores');
+  if (!cont) return;
+  const ind = calcularIndicadores();
+  const R = ind.fases['Retrospectivo'];
+  const P = ind.fases['Prospectivo'];
+  const rec = ind.recuperacion;
+
+  cont.innerHTML = `
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+      <!-- Adherencia -->
+      <div style="background:var(--mr-bg); border-radius:10px; padding:1rem; border:1px solid var(--mr-border);">
+        <div style="font-weight:700; font-size:13px; margin-bottom:0.75rem; color:var(--mr-navy);">Adherencia a controles (±30 días)</div>
+        <table style="width:100%; font-size:12px; border-collapse:collapse;">
+          <thead>
+            <tr style="color:var(--mr-text-muted);">
+              <th style="text-align:left; padding:4px 0;"></th>
+              <th style="text-align:center; padding:4px;">Retrospectivo</th>
+              <th style="text-align:center; padding:4px;">Prospectivo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding:4px 0; color:var(--mr-text-muted);">Total controles</td>
+              <td style="text-align:center; padding:4px;">${R.totalAdherencia}</td>
+              <td style="text-align:center; padding:4px;">${P.totalAdherencia}</td>
+            </tr>
+            <tr>
+              <td style="padding:4px 0; color:var(--mr-text-muted);">Adherentes</td>
+              <td style="text-align:center; padding:4px;">${R.adherentes}</td>
+              <td style="text-align:center; padding:4px;">${P.adherentes}</td>
+            </tr>
+            <tr style="font-weight:700; border-top:1px solid var(--mr-border);">
+              <td style="padding:6px 0;">% Adherencia</td>
+              <td style="text-align:center; padding:6px; color:var(--mr-navy);">${R.pctAdherencia}%</td>
+              <td style="text-align:center; padding:6px; color:var(--mr-navy);">${P.pctAdherencia}%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Retraso -->
+      <div style="background:var(--mr-bg); border-radius:10px; padding:1rem; border:1px solid var(--mr-border);">
+        <div style="font-weight:700; font-size:13px; margin-bottom:0.75rem; color:var(--mr-navy);">Retraso en controles (días, solo no adherentes)</div>
+        <table style="width:100%; font-size:12px; border-collapse:collapse;">
+          <thead>
+            <tr style="color:var(--mr-text-muted);">
+              <th style="text-align:left; padding:4px 0;"></th>
+              <th style="text-align:center; padding:4px;">Retrospectivo</th>
+              <th style="text-align:center; padding:4px;">Prospectivo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="padding:4px 0; color:var(--mr-text-muted);">N controles con retraso</td>
+              <td style="text-align:center; padding:4px;">${R.conRetraso}</td>
+              <td style="text-align:center; padding:4px;">${P.conRetraso}</td>
+            </tr>
+            <tr>
+              <td style="padding:4px 0; color:var(--mr-text-muted);">Promedio (días)</td>
+              <td style="text-align:center; padding:4px;">${R.promedio}</td>
+              <td style="text-align:center; padding:4px;">${P.promedio}</td>
+            </tr>
+            <tr style="font-weight:700; border-top:1px solid var(--mr-border);">
+              <td style="padding:6px 0;">Mediana (días)</td>
+              <td style="text-align:center; padding:6px; color:var(--mr-navy);">${R.mediana}</td>
+              <td style="text-align:center; padding:6px; color:var(--mr-navy);">${P.mediana}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Recuperación -->
+    <div style="background:var(--mr-bg); border-radius:10px; padding:1rem; border:1px solid var(--mr-border);">
+      <div style="font-weight:700; font-size:13px; margin-bottom:0.75rem; color:var(--mr-navy);">Recuperación del seguimiento</div>
+      <div style="display:flex; gap:2rem; font-size:12px; align-items:center;">
+        <div><span style="color:var(--mr-text-muted);">Pacientes con seg. perdido (pre):</span> <strong>${rec.totalPerdidos}</strong></div>
+        <div><span style="color:var(--mr-text-muted);">Recuperados:</span> <strong>${rec.recuperados}</strong></div>
+        <div style="font-size:16px; font-weight:700; color:var(--mr-navy);">${rec.pctRecuperacion}%</div>
+      </div>
+    </div>
+  `;
+}
+
 function renderInvestigacion() {
   const view = document.getElementById('view-investigacion');
 
   let html = `
     <h3>Datos de investigación</h3>
+    <div id="seccion-indicadores" style="margin-bottom:1.5rem;"></div>
     <div style="font-size:13px; color:var(--mr-text-muted); margin-bottom:1rem;">
       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><rect x="9" y="11" width="6" height="5" rx="1"/><path d="M10 11V9a2 2 0 1 1 4 0v2"/></svg>
       Vista seudonimizada: solo se muestran códigos de paciente y variables clínicas, sin datos identificatorios (nombre, DNI, contacto).
@@ -4235,6 +4366,7 @@ function renderInvestigacion() {
   `;
 
   view.innerHTML = html;
+  renderIndicadores();
   renderTablaInvestigacion();
   renderTablaRecuperacion();
 
