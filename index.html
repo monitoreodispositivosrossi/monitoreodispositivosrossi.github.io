@@ -4194,9 +4194,10 @@ function calcularIndicadores() {
     );
 
     // ── Adherencia ──
-    // Denominador: realizados + pendientes con proxControl vencido > 30 días
-    const totalAdherencia = realizados.length + pendientesVencidos.length;
-    const adherentes = realizados.filter(d => d.adherente === 'Sí').length;
+    // Excluir primeros controles (adherente = '-') del denominador
+    const realizadosConRef = realizados.filter(d => d.adherente === 'Sí' || d.adherente === 'No');
+    const totalAdherencia = realizadosConRef.length + pendientesVencidos.length;
+    const adherentes = realizadosConRef.filter(d => d.adherente === 'Sí').length;
     const pctAdherencia = totalAdherencia > 0 ? (adherentes / totalAdherencia * 100).toFixed(1) : '-';
 
     // ── Retraso (solo controles realizados con retrasoAjustado > 0) ──
