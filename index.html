@@ -1061,9 +1061,10 @@ function getRecuperacionSeguimiento() {
     const controlesPaciente = controles.filter(c=>c.pacienteId===pid);
     const pendientePaciente = pendientes.find(p=>p.paciente.id===pid);
 
-    // Seguimiento perdido basado en el ÚLTIMO control del paciente
-    const ultimoCtrlPac = controlesPaciente.length > 0
-      ? controlesPaciente.reduce((a,b) => diasRestantes(a.fechaControl) < diasRestantes(b.fechaControl) ? a : b)
+    // Seguimiento perdido basado en el ÚLTIMO control del paciente (con fechaControl)
+    const ctrlsConFecha = controlesPaciente.filter(c => c.fechaControl);
+    const ultimoCtrlPac = ctrlsConFecha.length > 0
+      ? ctrlsConFecha.reduce((a,b) => (a.fechaControl > b.fechaControl ? a : b))
       : null;
     const perdidoPre = ultimoCtrlPac
       ? (-diasRestantes(ultimoCtrlPac.proxControl) >= 180 && calcularFase(ultimoCtrlPac) === 'Retrospectivo')
