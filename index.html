@@ -3277,9 +3277,12 @@ function openModalEditarPaciente(pacienteId) {
     actualizarPaciente_(p.id, cambiosEP).catch(e=>console.error('actualizarPaciente:',e));
     closeModal();
     const _lp = document.getElementById("lista-pac"); if (_lp) renderListaPacientes();
-    // Actualizar el formulario de control si está abierto
+    // Actualizar el formulario de control si está abierto — usar ID para no perder la selección
     const _fp = document.getElementById('f-paciente');
-    if (_fp) _fp.dispatchEvent(new Event('change'));
+    if (_fp) {
+      setPacienteSelector('f-paciente', p.id);
+      _fp.dispatchEvent(new Event('change'));
+    }
   });
 }
 
