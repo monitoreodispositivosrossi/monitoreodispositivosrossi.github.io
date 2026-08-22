@@ -4201,9 +4201,11 @@ function calcularIndicadores() {
     const pctAdherencia = totalAdherencia > 0 ? (adherentes / totalAdherencia * 100).toFixed(1) : '-';
 
     // ── Retraso (solo controles realizados con retrasoAjustado > 0) ──
-    const conRetraso = realizados
-      .filter(d => d.aptoAnalisis === 'Sí' && d.retrasoAjustado !== null && d.retrasoAjustado !== '-' && Number(d.retrasoAjustado) > 0)
-      .map(d => Number(d.retrasoAjustado));
+    // Retraso: realizados con retraso > 0, y pendientes con retraso entre 31 y 180 días
+    const conRetraso = [
+      ...realizados.filter(d => d.retrasoAjustado !== null && d.retrasoAjustado !== '-' && Number(d.retrasoAjustado) > 0),
+      ...pendientesVencidos.filter(d => d.retrasoAjustado !== null && d.retrasoAjustado !== '-' && Number(d.retrasoAjustado) > 0 && Number(d.retrasoAjustado) <= 180)
+    ].map(d => Number(d.retrasoAjustado));
 
     let promedio = '-', mediana = '-';
     if (conRetraso.length > 0) {
