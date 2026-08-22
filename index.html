@@ -956,10 +956,10 @@ function esSeguimientoPerdido(c) {
       && x.id !== c.id
       && x.fechaControl
       && diasRestantes(x.fechaControl) > diasRestantes(c.fechaControl));
-  if (c.fechaControl === '2024-02-07') console.log('[SEG PERDIDO] c:', c.id, 'fc:', c.fechaControl, 'posteriores:', controlesPosteriores.length, controlesPosteriores.map(x=>x.fechaControl));
   if (controlesPosteriores.length > 0) {
+    // Tomar el control posterior más cercano (el de fechaControl más pequeña entre los posteriores)
     const siguiente = controlesPosteriores
-      .reduce((a,b) => diasRestantes(a.fechaControl) < diasRestantes(b.fechaControl) ? a : b);
+      .reduce((a,b) => diasRestantes(a.fechaControl) > diasRestantes(b.fechaControl) ? a : b);
     const diasEntre = diasRestantes(c.proxControl) - diasRestantes(siguiente.fechaControl);
     return diasEntre >= 180;
   }
