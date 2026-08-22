@@ -948,23 +948,13 @@ function calcularRetrasoAjustado(c) {
 }
 
 function esSeguimientoPerdido(c) {
-  // Para tabla de investigación:
-  // Si hay control siguiente → días entre proxControl de este y fechaControl del siguiente
-  // Si no hay control siguiente → días entre proxControl y hoy
-  const controlesPosteriores = controles
-    .filter(x => x.pacienteId === c.pacienteId
-      && x.id !== c.id
-      && x.fechaControl
-      && diasRestantes(x.fechaControl) > diasRestantes(c.fechaControl));
-  if (controlesPosteriores.length > 0) {
-    // Tomar el control posterior más cercano (el de fechaControl más pequeña entre los posteriores)
-    const siguiente = controlesPosteriores
-      .reduce((a,b) => diasRestantes(a.fechaControl) > diasRestantes(b.fechaControl) ? a : b);
-    const diasEntre = diasRestantes(c.proxControl) - diasRestantes(siguiente.fechaControl);
-    return diasEntre >= 180;
+  // Seguimiento perdido = diferencia entre fechaProgramada y fechaControl >= 180 días
+  // Para Pendientes (sin fechaControl): calcular entre fechaProgramada y hoy
+  if (!c.fechaControl) {
+    return -diasRestantes(c.fechaProgramada) >= 180;
   }
-  // No hay control siguiente — calcular contra hoy
-  return -diasRestantes(c.proxControl) >= 180;
+  // Para Realizados: calcular entre fechaProgramada y fechaControl
+  return calcularRetrasoDias(c) >= 180;
 }
 
 function esSeguimientoPerdidoDashboard(c) {
