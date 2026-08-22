@@ -1061,15 +1061,23 @@ function getRecuperacionSeguimiento() {
     const controlesPaciente = controles.filter(c=>c.pacienteId===pid);
     const pendientePaciente = pendientes.find(p=>p.paciente.id===pid);
 
-    const perdidoPreControles = controlesPaciente.some(c => calcularFase(c)==='Retrospectivo' && esSeguimientoPerdido(c));
-    const perdidoPrePendiente = pendientePaciente && pendientePaciente.seguimientoPerdido && pendientePaciente.fase === 'Retrospectivo';
-    const perdidoPre = perdidoPreControles || perdidoPrePendiente;
+    // Seguimiento perdido basado en el ÚLTIMO control del paciente
+    const ultimoCtrlPac = controlesPaciente.length > 0
+      ? controlesPaciente.reduce((a,b) => diasRestantes(a.fechaControl) < diasRestantes(b.fechaControl) ? a : b)
+      : null;
+    const perdidoPre = ultimoCtrlPac
+      ? (-diasRestantes(ultimoCtrlPac.proxControl) >= 180 && calcularFase(ultimoCtrlPac) === 'Retrospectivo')
+      : false;
 
     const tieneControlPost = controlesPaciente.some(c => calcularFase(c)==='Prospectivo');
+    // Verificar si el último control tiene proxControl no vencido (dentro del seguimiento esperado)
+    const ultimoCtrl = controlesPaciente.reduce((a,b) => diasRestantes(a.fechaControl) < diasRestantes(b.fechaControl) ? a : b, controlesPaciente[0]);
+    const enSeguimientoEsperado = ultimoCtrl && diasRestantes(ultimoCtrl.proxControl) > -180;
     return {
       paciente: pac,
       perdidoPre,
       tieneControlPost,
+      enSeguimientoEsperado,
       recuperado: perdidoPre && tieneControlPost
     };
   }).filter(r => r.perdidoPre);
@@ -4244,7 +4252,7 @@ function renderTablaRecuperacion() {
         <td style="font-weight:700;">${d.paciente.codigo}</td>
         <td>${d.paciente.sexo||'-'} / ${calcularEdad(d.paciente.fechaNacimiento) ?? '-'}</td>
         <td>${d.tieneControlPost ? 'Sí' : 'No'}</td>
-        <td><span class="risk-badge ${d.recuperado?'risk-bajo':'risk-alto'}">${d.recuperado ? 'Recuperado' : 'No recuperado'}</span></td>
+        <td><span class="risk-badge ${d.recuperado ? 'risk-bajo' : d.enSeguimientoEsperado ? '' : 'risk-alto'}" style="${d.enSeguimientoEsperado && !d.recuperado ? 'background:var(--mr-amber-bg);color:var(--mr-amber-text);' : ''}">${d.recuperado ? 'Recuperado' : d.enSeguimientoEsperado ? 'En seguimiento' : 'No recuperado'}</span></td>
       </tr>
     `;
   });
@@ -4390,7 +4398,7 @@ function exportarRecuperacionCSV() {
   const headers = ['codigo_paciente','sexo','edad','seguimiento_perdido_pre','tuvo_control_post','recuperado'];
   const rows = datos.map(d => [
     d.paciente.codigo, d.paciente.sexo||'-', calcularEdad(d.paciente.fechaNacimiento) ?? '-',
-    d.perdidoPre ? 'Sí' : 'No', d.tieneControlPost ? 'Sí' : 'No', d.recuperado ? 'Sí' : 'No'
+    d.perdidoPre ? 'Sí' : 'No', d.tieneControlPost ? 'Sí' : 'No', d.recuperado ? 'Recuperado' : d.enSeguimientoEsperado ? 'En seguimiento' : 'No recuperado'
   ].join(','));
   descargarCSV(headers, rows, 'modi_rossi_recuperacion_seguimiento.csv');
 }
