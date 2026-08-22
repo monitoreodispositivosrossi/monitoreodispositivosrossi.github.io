@@ -913,7 +913,25 @@ function calcularRetrasoAjustado(c) {
 }
 
 function esSeguimientoPerdido(c) {
-  return calcularRetrasoDias(c) >= 180;
+  // Para tabla de investigación:
+  // Si hay control siguiente → días entre proxControl de este y fechaControl del siguiente
+  // Si no hay control siguiente → días entre proxControl y hoy
+  const controlesPosteriores = controles
+    .filter(x => x.pacienteId === c.pacienteId && x.dispositivoId === c.dispositivoId
+      && diasRestantes(x.fechaControl) > diasRestantes(c.fechaControl));
+  if (controlesPosteriores.length > 0) {
+    const siguiente = controlesPosteriores
+      .reduce((a,b) => diasRestantes(a.fechaControl) < diasRestantes(b.fechaControl) ? a : b);
+    const diasEntre = diasRestantes(c.proxControl) - diasRestantes(siguiente.fechaControl);
+    return diasEntre >= 180;
+  }
+  // No hay control siguiente — calcular contra hoy
+  return -diasRestantes(c.proxControl) >= 180;
+}
+
+function esSeguimientoPerdidoDashboard(c) {
+  // Para dashboard: solo mira el proxControl del último control vs hoy
+  return -diasRestantes(c.proxControl) >= 180;
 }
 
 function calcularRetrasoMeses(c) {
@@ -1226,7 +1244,7 @@ function renderDash() {
 
 function alertaHTML(a, cls) {
   const riesgo = a.riesgo;
-  const perdido = a.seguimientoPerdido || esSeguimientoPerdido(a.control);
+  const perdido = a.seguimientoPerdido || esSeguimientoPerdidoDashboard(a.control);
   const diasLabel = a.diasAtraso != null
     ? `Atraso: ${a.diasAtraso} días${perdido ? ' · Seguimiento perdido' : ''}`
     : `Próx. control: ${fmtDate(a.control.proxControl)} · ${a.dias === 0 ? 'hoy' : a.dias === 1 ? 'mañana' : `en ${a.dias} días`}`;
@@ -1803,7 +1821,7 @@ async function renderForm() {
         <label>Paciente</label>
         <div class="field-row">
           ${pacienteSelectorHTML('f-paciente','dl-f-paciente')}
-          ${!modoEdicion ? `<button id="f-nuevo-paciente" class="icon-btn" aria-label="Nuevo paciente"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>` : ''}
+          ${!modoEdicion ? `<button id="f-nuevo-paciente" class="icon-btn" aria-label="Nuevo paciente"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button><button id="f-btn-editar-pac" class="icon-btn" aria-label="Editar paciente" title="Editar paciente" style="display:none;"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>` : ''}
         </div>
         ${modoEdicion ? `<div style="font-size:11px; color:var(--mr-text-muted); margin-top:3px;">El paciente no puede cambiarse al editar un control existente.</div>` : ''}
       </div>
@@ -1819,6 +1837,9 @@ async function renderForm() {
           <div id="f-dispositivo-display" style="flex:1; padding:8px 10px; border:1px solid var(--mr-border); border-radius:6px; font-size:13px; color:var(--mr-text-muted); background:var(--mr-bg);">Seleccioná un paciente para ver su dispositivo activo</div>
           <button id="f-btn-nuevo-disp" class="icon-btn" aria-label="Agregar dispositivo" title="Agregar dispositivo" style="display:none;">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+          <button id="f-btn-editar-disp" class="icon-btn" aria-label="Editar dispositivo" title="Editar dispositivo" style="display:none;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
         </div>
         <input type="hidden" id="f-dispositivo">
@@ -1927,6 +1948,8 @@ async function renderForm() {
   function actualizarDispositivoActivo() {
     const pacienteId = getPacienteSelector('f-paciente');
     const disp = pacienteId ? getDispositivoActivo(pacienteId) : null;
+    const _btnEP = document.getElementById('f-btn-editar-pac');
+    if (_btnEP) _btnEP.style.display = pacienteId ? 'inline-flex' : 'none';
     const display = document.getElementById('f-dispositivo-display');
     const hidden = document.getElementById('f-dispositivo');
     const btnParams = document.getElementById('f-btn-params');
@@ -1980,6 +2003,8 @@ async function renderForm() {
 
       const btnNuevoDisp = document.getElementById('f-btn-nuevo-disp');
       if (btnNuevoDisp) btnNuevoDisp.style.display = 'none';
+      const btnEditarDisp = document.getElementById('f-btn-editar-disp');
+      if (btnEditarDisp) btnEditarDisp.style.display = 'inline-flex';
 
       const perfil = getPerfilDispositivo(disp);
       btnParams.style.display = perfil ? 'inline-flex' : 'none';
@@ -2030,6 +2055,17 @@ async function renderForm() {
     const dispositivoId = document.getElementById('f-dispositivo').value;
     const disp = dispositivos.find(d=>d.id===dispositivoId);
     openModalParametrosTecnicos(disp);
+  });
+
+  document.getElementById('f-btn-editar-pac')?.addEventListener('click', () => {
+    const pacienteId = getPacienteSelector('f-paciente');
+    if (pacienteId) openModalEditarPaciente(pacienteId);
+  });
+  document.getElementById('f-btn-editar-disp')?.addEventListener('click', () => {
+    const pacienteId = getPacienteSelector('f-paciente');
+    if (pacienteId) {
+      openModalEditarDispositivo(pacienteId);
+    }
   });
 
 
