@@ -1018,7 +1018,6 @@ function datosIncompletos(c) {
   if (!disp || !disp.tipo) faltantes.push('tipo de dispositivo');
   if (!c.fechaControl) faltantes.push('fecha de último control');
   if (!c.proxControl) faltantes.push('fecha de próximo control programado');
-  if ((c.bateriaAnios===''||c.bateriaAnios==null) && (c.bateriaMeses===''||c.bateriaMeses==null)) faltantes.push('vida restante de batería');
   return faltantes;
 }
 
