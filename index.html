@@ -4333,7 +4333,15 @@ function getDatosInvestigacion() {
     };
   });
 
-  return [...realizados, ...pendientes];
+  return [...realizados, ...pendientes].sort((a, b) => {
+    // Primero por código de paciente
+    if (a.codigo < b.codigo) return -1;
+    if (a.codigo > b.codigo) return 1;
+    // Dentro del mismo paciente, por fecha de control (más antiguo primero)
+    const fa = a.fechaRealizada || a.fechaProgramada || '';
+    const fb = b.fechaRealizada || b.fechaProgramada || '';
+    return fa < fb ? -1 : fa > fb ? 1 : 0;
+  });
 }
 
 function renderTablaInvestigacion() {
