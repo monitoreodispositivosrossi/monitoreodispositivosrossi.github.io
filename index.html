@@ -4184,11 +4184,12 @@ function calcularIndicadores() {
   const result = {};
 
   fases.forEach(fase => {
-    // Realizados con fechaRealizada
-    const realizados = datos.filter(d => d.tipoRegistro === 'Realizado' && d.fase === fase);
-    // Pendientes cuya fecha programada ya venció hace más de 30 días
+    // Solo controles aptos para análisis
+    const realizados = datos.filter(d => d.tipoRegistro === 'Realizado' && d.fase === fase && d.aptoAnalisis === 'Sí');
+    // Pendientes aptos con proxControl vencido > 30 días
     const pendientesVencidos = datos.filter(d =>
       d.tipoRegistro === 'Pendiente' && d.fase === fase &&
+      d.aptoAnalisis === 'Sí' &&
       d.retrasoDias !== null && d.retrasoDias > 30
     );
 
@@ -4201,7 +4202,7 @@ function calcularIndicadores() {
 
     // ── Retraso (solo controles realizados con retrasoAjustado > 0) ──
     const conRetraso = realizados
-      .filter(d => d.retrasoAjustado !== null && d.retrasoAjustado !== '-' && Number(d.retrasoAjustado) > 0)
+      .filter(d => d.aptoAnalisis === 'Sí' && d.retrasoAjustado !== null && d.retrasoAjustado !== '-' && Number(d.retrasoAjustado) > 0)
       .map(d => Number(d.retrasoAjustado));
 
     let promedio = '-', mediana = '-';
@@ -4217,8 +4218,8 @@ function calcularIndicadores() {
     result[fase] = { totalAdherencia, adherentes, pctAdherencia, conRetraso: conRetraso.length, promedio, mediana };
   });
 
-  // ── Recuperación del seguimiento ──
-  const recuperacion = getRecuperacionSeguimiento();
+  // ── Recuperación del seguimiento (solo pacientes aptos para análisis) ──
+  const recuperacion = getRecuperacionSeguimiento().filter(r => r.paciente && r.paciente.consentimiento === true && r.paciente.estado === 'Activo');
   const totalPerdidos = recuperacion.length;
   const recuperados = recuperacion.filter(r => r.recuperado).length;
   const pctRecuperacion = totalPerdidos > 0 ? (recuperados / totalPerdidos * 100).toFixed(1) : '-';
