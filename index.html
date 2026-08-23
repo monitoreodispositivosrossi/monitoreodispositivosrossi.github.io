@@ -4085,7 +4085,7 @@ async function renderListaProfesionalesEn(targetId) {
   let html = '';
   [...profesionales].sort((a,b) => a.nombre.localeCompare(b.nombre)).forEach(p => {
     const cantControles = controles.filter(c=>c.profesionalId===p.id).length;
-    const rolBg = p.rol==='admin'?'var(--mr-navy)':p.rol==='recepcionista'?'var(--mr-teal-bg)':p.rol==='investigador'?'var(--mr-amber-bg)':'var(--mr-coral-bg)';
+    const rolBg = p.rol==='admin'?'#1a3a5c':p.rol==='recepcionista'?'var(--mr-teal-bg)':p.rol==='investigador'?'var(--mr-amber-bg)':'var(--mr-coral-bg)';
     const rolColor = p.rol==='admin'?'#fff':p.rol==='recepcionista'?'var(--mr-teal-text)':p.rol==='investigador'?'var(--mr-amber-text)':'var(--mr-coral-text)';
     const rolNombre = ROLES[p.rol]?.nombre || 'Médico/Técnico';
     html += `
