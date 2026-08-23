@@ -4089,7 +4089,7 @@ async function renderListaProfesionalesEn(targetId) {
       <div class="list-row">
         <div>
           <div style="font-weight:700; font-size:13px;">${p.nombre}</div>
-          <div class="muted" style="font-size:12px;">${cantControles} control(es) registrado(s)</div>
+          <div class="muted" style="font-size:12px;">${ROLES[p.rol]?.nombre || 'Médico/Técnico'} · ${cantControles} control(es) registrado(s)</div>
         </div>
         <div style="display:flex; gap:4px;">
           <button class="btn-icon-tooltip btn-edit-prof" data-id="${p.id}" data-target="${targetId}" data-tooltip="Editar profesional">
