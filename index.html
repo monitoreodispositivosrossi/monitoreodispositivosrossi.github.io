@@ -4086,7 +4086,6 @@ async function renderListaProfesionalesEn(targetId) {
   [...profesionales].sort((a,b) => a.nombre.localeCompare(b.nombre)).forEach(p => {
     const cantControles = controles.filter(c=>c.profesionalId===p.id).length;
     html += `
-    html += `
       <div class="list-row">
         <div>
           <div style="font-weight:700; font-size:13px;">${p.nombre}</div>
@@ -4110,11 +4109,11 @@ async function renderListaProfesionalesEn(targetId) {
 
   document.querySelectorAll('.btn-del-prof').forEach(btn => {
     btn.addEventListener('click', async () => {
-     btn.addEventListener('click', async () => {
-       const id = btn.dataset.id;
-       const cant = controles.filter(c=>c.profesionalId===id).length;
-       if (cant > 0) { alert(`No se puede eliminar: tiene ${cant} control(es) asociado(s).`); return; }
-       if (!confirm('¿Eliminás este usuario? Esta acción no se puede deshacer.')) return;
+      const id = btn.dataset.id;
+      const cant = controles.filter(c=>c.profesionalId===id).length;
+      if (cant > 0) { alert(`No se puede eliminar: tiene ${cant} control(es) asociado(s).`); return; }
+      if (!confirm('¿Eliminás este usuario? Esta acción no se puede deshacer.')) return;
+      await eliminarProfesional_(id);
       renderListaProfesionalesEn(btn.dataset.target);
     });
   });
