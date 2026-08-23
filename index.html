@@ -4069,7 +4069,7 @@ function renderProfesionales(targetId = 'view-prof') {
     ${!isConfig ? '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;"><h3 style="margin:0;">Profesionales</h3>' : '<div style="display:flex; justify-content:flex-end; margin-bottom:0.75rem;">'}
       <button id="btn-nuevo-prof-${targetId}" class="btn-primary" style="font-size:13px; display:flex; align-items:center; gap:6px;">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Nuevo profesional
+        Nuevo usuario
       </button>
     </div>
     <div id="lista-prof-${targetId}"></div>
@@ -4085,17 +4085,20 @@ async function renderListaProfesionalesEn(targetId) {
   let html = '';
   [...profesionales].sort((a,b) => a.nombre.localeCompare(b.nombre)).forEach(p => {
     const cantControles = controles.filter(c=>c.profesionalId===p.id).length;
+    const rolBg = p.rol==='admin'?'var(--mr-navy)':p.rol==='recepcionista'?'var(--mr-teal-bg)':p.rol==='investigador'?'var(--mr-amber-bg)':'var(--mr-coral-bg)';
+    const rolColor = p.rol==='admin'?'#fff':p.rol==='recepcionista'?'var(--mr-teal-text)':p.rol==='investigador'?'var(--mr-amber-text)':'var(--mr-coral-text)';
+    const rolNombre = ROLES[p.rol]?.nombre || 'Médico/Técnico';
     html += `
       <div class="list-row">
         <div>
           <div style="font-weight:700; font-size:13px;">${p.nombre}</div>
           <div style="font-size:12px; display:flex; align-items:center; gap:6px;">
-            <span style="padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; background:${p.rol==='admin'?'var(--mr-navy)':p.rol==='recepcionista'?'var(--mr-teal-bg)':p.rol==='investigador'?'var(--mr-amber-bg)':'var(--mr-coral-bg)'}; color:${p.rol==='admin'?'#fff':p.rol==='recepcionista'?'var(--mr-teal-text)':p.rol==='investigador'?'var(--mr-amber-text)':'var(--mr-coral-text)'};">${ROLES[p.rol]?.nombre || 'Médico/Técnico'}</span>
+            <span style="padding:2px 8px; border-radius:10px; font-size:11px; font-weight:600; background:${rolBg}; color:${rolColor};">${rolNombre}</span>
             <span class="muted">${cantControles} control(es)</span>
           </div>
         </div>
         <div style="display:flex; gap:4px;">
-          <button class="btn-icon-tooltip btn-edit-prof" data-id="${p.id}" data-target="${targetId}" data-tooltip="Editar profesional">
+          <button class="btn-icon-tooltip btn-edit-prof" data-id="${p.id}" data-target="${targetId}" data-tooltip="Editar usuario">
             <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           </button>
           <button class="btn-icon-tooltip btn-del-prof" data-id="${p.id}" data-target="${targetId}" data-tooltip="Eliminar usuario">
