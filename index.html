@@ -395,7 +395,7 @@ let VENTANA_DIAS = 21, HORIZONTE_TURNOS_DIAS = 21, TURNOS_ONLINE_POR_DIA = 2;
 const ROLES = {
   admin:         { nombre: 'Administrador',   modulos: ['dashboard','pacientes','agenda','investigacion','configuracion'] },
   medico:        { nombre: 'Médico/Técnico',  modulos: ['dashboard','pacientes','agenda','investigacion'] },
-  recepcionista: { nombre: 'Recepcionista',   modulos: ['agenda'] },
+  recepcionista: { nombre: 'Recepcionista',   modulos: ['dashboard','agenda'] },
   investigador:  { nombre: 'Investigador',    modulos: ['investigacion'] }
 };
 
@@ -732,7 +732,12 @@ function iniciarSesion(prof) {
   document.getElementById('body-login').style.display = 'none';
   document.getElementById('body-personal').style.display = 'flex';
   aplicarPermisos();
-  renderDash();
+  // Navegar a la primera vista permitida según el rol
+  const _rolInicio = profesionalLogueado?.rol || 'medico';
+  const _modulosInicio = ROLES[_rolInicio]?.modulos || [];
+  const _mapaVistas = { dashboard:'dash', pacientes:'pac', agenda:'agenda', investigacion:'investigacion', configuracion:'config' };
+  const _primeraVista = _mapaVistas[_modulosInicio[0]] || 'dash';
+  showView(_primeraVista);
 }
 function cerrarSesion() {
   profesionalLogueado = null;
