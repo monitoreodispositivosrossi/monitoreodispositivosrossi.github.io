@@ -274,27 +274,27 @@
 
   <div class="body" id="body-personal" style="display:none;">
     <div class="sidebar">
-      <button class="nav-btn active" data-view="dash">
+      <button class="nav-btn active" data-view="dash" data-modulo="dashboard">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
         <span class="nav-tooltip">Dashboard</span>
         <span class="nav-label">Inicio</span>
       </button>
-      <button class="nav-btn" data-view="pac">
+      <button class="nav-btn" data-view="pac" data-modulo="pacientes">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         <span class="nav-tooltip">Pacientes</span>
         <span class="nav-label">Pacientes</span>
       </button>
-      <button class="nav-btn" data-view="agenda">
+      <button class="nav-btn" data-view="agenda" data-modulo="agenda">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         <span class="nav-tooltip">Agenda</span>
         <span class="nav-label">Agenda</span>
       </button>
-      <button class="nav-btn" data-view="investigacion">
+      <button class="nav-btn" data-view="investigacion" data-modulo="investigacion">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2V9M9 21H5a2 2 0 0 1-2-2V9m0 0h18"/></svg>
         <span class="nav-tooltip">Investigación</span>
         <span class="nav-label">Invest.</span>
       </button>
-      <button class="nav-btn" data-view="config">
+      <button class="nav-btn" data-view="config" data-modulo="configuracion">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         <span class="nav-tooltip">Configuración</span>
         <span class="nav-label">Config.</span>
@@ -391,6 +391,20 @@ let MOTIVOS_IMPLANTE = ['Bloqueo AV completo (BAV de 3° grado)','Bloqueo AV de 
 let AGENDA_CONFIG = { diasAtencion:[4], horarios:['09:00','09:10','09:20','09:30','09:40','09:50'], diasBloqueados:[] };
 let CONFIG_INSTITUCION = { servicio:'Servicio de Cardiología', institucion:'HIGA Prof. Dr. Rodolfo Rossi' };
 let VENTANA_DIAS = 21, HORIZONTE_TURNOS_DIAS = 21, TURNOS_ONLINE_POR_DIA = 2;
+// ===================== ROLES Y PERMISOS =====================
+const ROLES = {
+  admin:         { nombre: 'Administrador',   modulos: ['dashboard','pacientes','agenda','investigacion','configuracion'] },
+  medico:        { nombre: 'Médico/Técnico',  modulos: ['dashboard','pacientes','agenda','investigacion'] },
+  recepcionista: { nombre: 'Recepcionista',   modulos: ['agenda'] },
+  investigador:  { nombre: 'Investigador',    modulos: ['investigacion'] }
+};
+
+function tienePermiso(modulo) {
+  if (!profesionalLogueado) return false;
+  const rol = profesionalLogueado.rol || 'medico';
+  return (ROLES[rol]?.modulos || []).includes(modulo);
+}
+
 let FECHA_IMPLEMENTACION_STR = '2026-08-01';
 let FECHA_IMPLEMENTACION = new Date(2026, 7, 1); // local
 
@@ -464,7 +478,7 @@ async function cargarDataset() {
     sbGet('profesionales'), sbGet('pacientes'), sbGet('dispositivos'), sbGet('controles'),
     sbGet('turnos_reservados'), sbGet('acciones_contacto'), sbGet('config_general'), sbGet('contadores')
   ]);
-  profesionales = (pr||[]).map(p => ({ id:String(p.id||''), nombre:String(p.nombre||''), dni:String(p.dni||'') }));
+  profesionales = (pr||[]).map(p => ({ id:String(p.id||''), nombre:String(p.nombre||''), dni:String(p.dni||''), rol:String(p.rol||'medico') }));
   pacientes     = (pa||[]).map(mapPac);
   dispositivos  = (di||[]).map(mapDisp);
   controles     = (co||[]).map(mapCtrl);
@@ -686,17 +700,17 @@ async function registrarAccionContacto_(controlId, tipo, resultado) {
 }
 
 // ===================== GUARDADO: PROFESIONALES =====================
-async function guardarNuevoProfesional_(nombre, dni) {
+async function guardarNuevoProfesional_(nombre, dni, rol='medico') {
   const id = 'PR' + nextProfesionalId; nextProfesionalId++;
   await sbUpdate('contadores','clave=eq.nextProfesionalId',{valor:nextProfesionalId});
-  await sbInsert('profesionales',{ id, nombre, dni });
-  profesionales.push({ id, nombre, dni });
+  await sbInsert('profesionales',{ id, nombre, dni, rol });
+  profesionales.push({ id, nombre, dni, rol });
   return { id };
 }
-async function actualizarProfesional_(profesionalId, nombre, dni) {
-  await sbUpdate('profesionales','id=eq.'+profesionalId,{ nombre, dni });
+async function actualizarProfesional_(profesionalId, nombre, dni, rol) {
+  await sbUpdate('profesionales','id=eq.'+profesionalId,{ nombre, dni, ...(rol ? {rol} : {}) });
   const idx = profesionales.findIndex(p => p.id === profesionalId);
-  if (idx >= 0) Object.assign(profesionales[idx],{ nombre, dni });
+  if (idx >= 0) Object.assign(profesionales[idx],{ nombre, dni, ...(rol ? {rol} : {}) });
 }
 async function eliminarProfesional_(id) {
   await sbDelete('profesionales','id=eq.'+id);
@@ -717,6 +731,7 @@ function iniciarSesion(prof) {
   document.getElementById('user-pill-text').textContent = prof.nombre.split(',')[0];
   document.getElementById('body-login').style.display = 'none';
   document.getElementById('body-personal').style.display = 'flex';
+  aplicarPermisos();
   renderDash();
 }
 function cerrarSesion() {
@@ -4114,6 +4129,7 @@ function openModalEditarProfesional(profId, targetId) {
     </div>
     <div class="field"><label>DNI</label><input type="text" id="epr-dni" value="${prof.dni||''}"></div>
     <div id="epr-msg" class="msg err" style="display:none;"></div>
+    <div class="field"><label>Rol</label><select id="epr-rol"><option value="admin" ${prof.rol==='admin'?'selected':''}>Administrador</option><option value="medico" ${(!prof.rol||prof.rol==='medico')?'selected':''}>Médico/Técnico</option><option value="recepcionista" ${prof.rol==='recepcionista'?'selected':''}>Recepcionista</option><option value="investigador" ${prof.rol==='investigador'?'selected':''}>Investigador</option></select></div>
     <div style="display:flex; gap:8px;">
       <button id="epr-guardar" class="btn-primary">Guardar cambios</button>
       <button id="epr-cancelar" class="btn-secondary">Cancelar</button>
@@ -4133,8 +4149,8 @@ function openModalEditarProfesional(profId, targetId) {
     }
     const nombreEPR = `${apellido}, ${nombre}`;
     prof.nombre = nombreEPR;
-    prof.dni = dni;
-    actualizarProfesional_(prof.id, nombreEPR, dni).catch(e=>console.error(e));
+    prof.nombre = nombreEPR; prof.dni = dni; prof.rol = document.getElementById('epr-rol').value;
+    actualizarProfesional_(prof.id, nombreEPR, dni, document.getElementById('epr-rol').value).catch(e=>console.error(e));
     closeModal();
     renderListaProfesionalesEn(targetId);
   });
@@ -4152,6 +4168,7 @@ function openModalProfesional(onSaved) {
     </div>
     <div class="field"><label>DNI</label><input type="text" id="mpr-dni"></div>
     <div id="mpr-msg" class="msg err" style="display:none;"></div>
+    <div class="field"><label>Rol</label><select id="mpr-rol"><option value="admin">Administrador</option><option value="medico" selected>Médico/Técnico</option><option value="recepcionista">Recepcionista</option><option value="investigador">Investigador</option></select></div>
     <div style="display:flex; gap:8px;">
       <button id="mpr-guardar" class="btn-primary">Guardar profesional</button>
       <button id="mpr-cancelar" class="btn-secondary">Cancelar</button>
@@ -4169,8 +4186,9 @@ function openModalProfesional(onSaved) {
       return;
     }
     const nombreMPR = `${apellido}, ${nombre}`;
-    const _rMPR = await guardarNuevoProfesional_(nombreMPR, dni);
-    const nuevo = {id:_rMPR.id, nombre:nombreMPR, dni};
+    const rolMPR = document.getElementById('mpr-rol').value;
+    const _rMPR = await guardarNuevoProfesional_(nombreMPR, dni, rolMPR);
+    const nuevo = {id:_rMPR.id, nombre:nombreMPR, dni, rol:rolMPR};
     closeModal();
     if (onSaved) onSaved(nuevo);
   });
@@ -4556,7 +4574,19 @@ function exportarRecuperacionCSV() {
 const views = {dash:'view-dash', form:'view-form', agenda:'view-agenda', pac:'view-pac', prof:'view-prof', investigacion:'view-investigacion', config:'view-config'};
 const renders = {dash:renderDash, form:renderForm, agenda:renderAgenda, pac:renderPacientes, prof:renderProfesionales, investigacion:renderInvestigacion, config:renderConfig};
 
+function aplicarPermisos() {
+  if (!profesionalLogueado) return;
+  document.querySelectorAll('.nav-btn[data-modulo]').forEach(btn => {
+    const modulo = btn.dataset.modulo;
+    btn.style.display = tienePermiso(modulo) ? '' : 'none';
+  });
+}
+
 function showView(key) {
+  // Verificar permiso antes de mostrar la vista
+  const mapaModulos = { dash:'dashboard', pac:'pacientes', form:'pacientes', agenda:'agenda', investigacion:'investigacion', config:'configuracion', prof:'configuracion' };
+  const modulo = mapaModulos[key];
+  if (profesionalLogueado && modulo && !tienePermiso(modulo)) return;
   // Si se navega a cualquier vista que no sea el formulario, resetear modo edición
   if (key !== 'form') {
     controlEditandoId = null;
