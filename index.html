@@ -1295,7 +1295,7 @@ function renderDash() {
             <span class="muted"> · ${tipo.nombre||''}</span>
             <div style="font-size:12px; color:var(--mr-teal-text); margin-top:2px;">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              Turno: ${fmtDate(a.turno.fecha)} · ${a.turno.hora} hs
+              Turno: ${fmtDate(a.turno.fecha)} · ${a.turno.hora} hs${a.turno.profesionalId ? ' · ' + (profesionales.find(p=>p.id===a.turno.profesionalId)?.nombre.split(', ')[0]||'') : ''}
               <span style="font-size:10px; padding:1px 6px; border-radius:4px; margin-left:4px; ${a.turno.origen==='online'?'background:#E6F1FB;color:#0C447C;':'background:var(--mr-coral-bg);color:var(--mr-coral-text);'}">${a.turno.origen==='online'?'Online':'Presencial'}</span>
             </div>
           </div>
@@ -2005,7 +2005,7 @@ function getFechasAtencionConBloqueados(cant, agenda = AGENDA_CONFIG) {
   return fechas;
 }
 
-function openModalAsignarTurno(fechaStr, hora) {
+function openModalAsignarTurno(fechaStr, hora, profIdPresel = '') {
   const overlay = document.getElementById('modal-overlay');
   const content = document.getElementById('modal-content');
   overlay.classList.add('show');
@@ -2017,6 +2017,13 @@ function openModalAsignarTurno(fechaStr, hora) {
     <div style="font-size:13px; color:var(--mr-text-muted); margin-bottom:1rem;">
       ${fmtDateLong(fecha)} · ${hora} hs
     </div>
+    ${(profesionalLogueado?.rol === 'admin' || profesionalLogueado?.rol === 'recepcionista') ? `
+    <div class="field">
+      <label>Profesional</label>
+      <select id="at-sel-prof" style="width:100%;">
+        ${profesionales.filter(p => getAgendaProf(p.id).moduloActivo).map(p => `<option value="${p.id}" ${p.id===profIdPresel?'selected':''}>${p.nombre}</option>`).join('')}
+      </select>
+    </div>` : ''}
     <div class="field">
       <label>Paciente</label>
       <div class="field-row">
@@ -2052,7 +2059,8 @@ function openModalAsignarTurno(fechaStr, hora) {
       msg.style.display='block'; msg.textContent='Ese horario ya está ocupado.'; return;
     }
     const controlActivo = controles.filter(c=>c.pacienteId===pacienteId).sort((a,b)=>diasRestantes(a.fechaControl)-diasRestantes(b.fechaControl))[0];
-    const _rAT = await reservarTurno_({pacienteId, fecha:fechaStr, hora, controlId:controlActivo?.id||'', origen:'presencial'});
+    const _profIdAT = document.getElementById('at-sel-prof')?.value || (profesionalLogueado?.rol==='medico' ? profesionalLogueado.id : '') || '';
+    const _rAT = await reservarTurno_({pacienteId, fecha:fechaStr, hora, controlId:controlActivo?.id||'', origen:'presencial', profesionalId:_profIdAT});
     if (!_rAT.ok) { msg.style.display='block'; msg.textContent=_rAT.error||'Horario ocupado.'; return; }
     content.style.maxWidth = '';
     closeModal();
@@ -2159,7 +2167,7 @@ function renderDiagramaOcupacion() {
             ${marca ? `<div style="font-size:10px; opacity:0.8;">${marca}</div>` : ''}
           </div>`;
         } else {
-          html += `<div class="occ-cell occ-free" style="cursor:pointer;" onclick="openModalAsignarTurno('${toInputDate(f)}','${h}')" title="Asignar turno">+</div>`;
+          html += `<div class="occ-cell occ-free" style="cursor:pointer;" onclick="openModalAsignarTurno('${toInputDate(f)}','${h}', document.getElementById('view-agenda')?.dataset.profId||'')" title="Asignar turno">+</div>`;
         }
       }
     });
@@ -3212,8 +3220,8 @@ async function openModalVistaPaciente(pacienteId) {
       return `<div style="background:var(--mr-teal-bg);color:var(--mr-teal-text);border-radius:10px;padding:1rem;margin-bottom:1rem;">
         <div style="font-weight:700;font-size:14px;margin-bottom:6px;">✓ Turno reservado</div>
         <div style="font-size:13px;text-transform:capitalize;">${fmtDateLong(turnoReservado.fecha)} a las ${turnoReservado.hora} hs</div>
-        <div style="font-size:12px;color:var(--mr-teal-text);margin-top:4px;">${CONFIG_INSTITUCION.servicio}</div>
-        <div style="font-size:12px;color:var(--mr-teal-text);">${CONFIG_INSTITUCION.institucion}</div>
+        <div style="font-size:12px;color:var(--mr-teal-text);margin-top:4px;">${CONFIG_INSTITUCION.servicio} · ${CONFIG_INSTITUCION.institucion}</div>
+        ${turnoReservado.profesionalId ? `<div style="font-size:12px;color:var(--mr-teal-text);">Prof.: ${profesionales.find(p=>p.id===turnoReservado.profesionalId)?.nombre||''}</div>` : ''}
         <button id="cvp-btn-cambiar-turno" class="btn-secondary" style="margin-top:10px;font-size:12px;padding:6px 12px;">Modificar turno</button>
       </div>`;
     }
