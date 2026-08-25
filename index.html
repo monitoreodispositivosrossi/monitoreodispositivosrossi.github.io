@@ -1466,6 +1466,16 @@ async function openModalAccion(controlId, tipo) {
 /* ===================== AGENDA ===================== */
 function renderAgenda() {
   const view = document.getElementById('view-agenda');
+  // Verificar si el profesional logueado tiene agenda activa
+  const agendaPropia = profesionalLogueado ? getAgendaProf(profesionalLogueado.id) : null;
+  if (!agendaPropia || !agendaPropia.moduloActivo) {
+    view.innerHTML = `
+      <h3>Agenda de turnos</h3>
+      <div style="color:var(--mr-text-muted); font-size:13px; padding:1rem; border:1px solid var(--mr-border); border-radius:8px;">
+        No tenés un módulo de agenda activo. Contactá al administrador para habilitarlo.
+      </div>`;
+    return;
+  }
   view.innerHTML = `
     <h3>Agenda de turnos</h3>
     <div class="section-label" style="margin-top:0;">Ocupación por día (próximas 4 fechas de atención)</div>
@@ -1887,7 +1897,7 @@ function getFechasAtencion(cant) {
 
 async function renderTablaTurnos() {
   const tbody = document.getElementById('tabla-turnos');
-  const ordenados = turnosReservados.slice().sort((a,b) => {
+  const ordenados = turnosReservados.filter(t => !profesionalLogueado || t.profesionalId === profesionalLogueado.id).slice().sort((a,b) => {
     const fa = toInputDate(a.fecha) + ' ' + a.hora;
     const fb = toInputDate(b.fecha) + ' ' + b.hora;
     return fa.localeCompare(fb);
@@ -1941,11 +1951,11 @@ async function renderTablaTurnos() {
   });
 }
 
-function getFechasAtencionConBloqueados(cant) {
+function getFechasAtencionConBloqueados(cant, agenda = AGENDA_CONFIG) {
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   const fechas = [];
   for (let d = new Date(hoy), i=0; fechas.length < cant && i < 60; d.setDate(d.getDate()+1), i++) {
-    if (AGENDA_CONFIG.diasAtencion.includes(d.getDay())) fechas.push(new Date(d));
+    if (agenda.diasAtencion.includes(d.getDay())) fechas.push(new Date(d));
   }
   return fechas;
 }
@@ -2065,9 +2075,11 @@ function irANuevoControl(pacienteId) {
 
 function renderDiagramaOcupacion() {
   const cont = document.getElementById('diagrama-ocupacion');
-  const fechasAtencion = getFechasAtencionConBloqueados(4);
+  // Usar agenda del profesional logueado
+  const _agProf = profesionalLogueado ? getAgendaProf(profesionalLogueado.id) : AGENDA_CONFIG;
+  const fechasAtencion = getFechasAtencionConBloqueados(4, _agProf);
 
-  if (fechasAtencion.length === 0 || AGENDA_CONFIG.horarios.length === 0) {
+  if (fechasAtencion.length === 0 || _agProf.horarios.length === 0) {
     cont.innerHTML = `<div class="empty">Configurá días de atención y horarios para ver la ocupación</div>`;
     return;
   }
@@ -2076,18 +2088,18 @@ function renderDiagramaOcupacion() {
 
   html += `<div></div>`;
   fechasAtencion.forEach(f => {
-    const bloqueado = AGENDA_CONFIG.diasBloqueados.includes(toInputDate(f));
+    const bloqueado = _agProf.diasBloqueados.includes(toInputDate(f));
     html += `<div style="text-align:center; font-size:12px; font-weight:700; ${bloqueado?'color:var(--mr-coral);':''}">${fmtDateShort(f)}<div style="font-size:11px; color:${bloqueado?'var(--mr-coral)':'var(--mr-text-muted)'}; font-weight:400; text-transform:capitalize;">${DIAS_SEMANA_CORTOS[f.getDay()]}${bloqueado?' 🔒':''}</div></div>`;
   });
 
-  AGENDA_CONFIG.horarios.forEach(h => {
+  _agProf.horarios.forEach(h => {
     html += `<div style="font-size:12px; color:var(--mr-text-muted); text-align:right; padding-right:6px;">${h}</div>`;
     fechasAtencion.forEach(f => {
-      const bloqueado = AGENDA_CONFIG.diasBloqueados.includes(toInputDate(f));
+      const bloqueado = _agProf.diasBloqueados.includes(toInputDate(f));
       if (bloqueado) {
         html += `<div style="border-radius:var(--border-radius-md); padding:6px 4px; text-align:center; font-size:11px; background:var(--mr-coral-bg); color:var(--mr-coral-text); font-weight:500;">Bloqueado</div>`;
       } else {
-        const turno = turnosReservados.find(t => toInputDate(t.fecha)===toInputDate(f) && t.hora===h);
+        const turno = turnosReservados.find(t => toInputDate(t.fecha)===toInputDate(f) && t.hora===h && (!profesionalLogueado || t.profesionalId===profesionalLogueado.id));
         if (turno) {
           const pac = pacientes.find(p=>p.id===turno.pacienteId);
           const disp = dispositivos.find(d=>d.pacienteId===turno.pacienteId && d.activo);
