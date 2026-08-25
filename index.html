@@ -1494,7 +1494,7 @@ function renderAgendasProfesionales() {
 
   let html = `<div style="margin-bottom:1rem;">`;
   
-  profesionales.sort((a,b) => a.nombre.localeCompare(b.nombre)).forEach(prof => {
+  profesionales.filter(p => p.rol === 'medico').sort((a,b) => a.nombre.localeCompare(b.nombre)).forEach(prof => {
     const agenda = getAgendaProf(prof.id);
     const activo = agenda.moduloActivo;
     html += `
