@@ -1470,20 +1470,49 @@ async function openModalAccion(controlId, tipo) {
 }
 
 /* ===================== AGENDA ===================== */
-function renderAgenda() {
+function renderAgenda(profIdSeleccionado = null) {
   const view = document.getElementById('view-agenda');
-  // Verificar si el profesional logueado tiene agenda activa
-  const agendaPropia = profesionalLogueado ? getAgendaProf(profesionalLogueado.id) : null;
-  if (!agendaPropia || !agendaPropia.moduloActivo) {
+  const rol = profesionalLogueado?.rol;
+  const puedeVerTodos = rol === 'admin' || rol === 'recepcionista';
+  const profsConAgenda = profesionales.filter(p => getAgendaProf(p.id).moduloActivo);
+
+  // Determinar qué profesional ver
+  let profAgendaId = profIdSeleccionado;
+  if (!profAgendaId) {
+    if (puedeVerTodos) {
+      profAgendaId = profsConAgenda[0]?.id || null;
+    } else {
+      profAgendaId = profesionalLogueado?.id || null;
+    }
+  }
+
+  const agendaActual = profAgendaId ? getAgendaProf(profAgendaId) : null;
+
+  if (!agendaActual || !agendaActual.moduloActivo) {
     view.innerHTML = `
       <h3>Agenda de turnos</h3>
       <div style="color:var(--mr-text-muted); font-size:13px; padding:1rem; border:1px solid var(--mr-border); border-radius:8px;">
-        No tenés un módulo de agenda activo. Contactá al administrador para habilitarlo.
+        ${puedeVerTodos ? 'No hay profesionales con agenda activa.' : 'No tenés un módulo de agenda activo. Contactá al administrador para habilitarlo.'}
       </div>`;
     return;
   }
+
+  // Selector de profesional para admin y recepcionista
+  const selectorHTML = puedeVerTodos && profsConAgenda.length > 1 ? `
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:1rem;">
+      <label style="font-size:13px; font-weight:600; white-space:nowrap;">Profesional:</label>
+      <select id="agenda-sel-prof" style="font-size:13px; padding:5px 8px; border:1px solid var(--mr-border); border-radius:6px;">
+        ${profsConAgenda.map(p => `<option value="${p.id}" ${p.id===profAgendaId?'selected':''}>${p.nombre}</option>`).join('')}
+      </select>
+    </div>` : puedeVerTodos && profsConAgenda.length === 1 ? `
+    <div style="font-size:13px; color:var(--mr-text-muted); margin-bottom:1rem;">Profesional: <strong>${profsConAgenda[0].nombre}</strong></div>` : '';
+
+  // Guardar el profAgendaId para que renderTablaTurnos y renderDiagramaOcupacion lo usen
+  view.dataset.profId = profAgendaId;
+
   view.innerHTML = `
     <h3>Agenda de turnos</h3>
+    ${selectorHTML}
     <div class="section-label" style="margin-top:0;">Ocupación por día (próximas 4 fechas de atención)</div>
     <div id="diagrama-ocupacion" style="overflow-x:auto; margin-bottom:1.5rem;"></div>
     <div class="section-label" style="margin-top:0;">Próximos turnos asignados</div>
@@ -1498,6 +1527,14 @@ function renderAgenda() {
   `;
   renderTablaTurnos();
   renderDiagramaOcupacion();
+
+  // Listener selector de profesional
+  const _agSelProf = document.getElementById('agenda-sel-prof');
+  if (_agSelProf) {
+    _agSelProf.addEventListener('change', () => {
+      renderAgenda(_agSelProf.value);
+    });
+  }
 }
 
 
@@ -1903,7 +1940,9 @@ function getFechasAtencion(cant) {
 
 async function renderTablaTurnos() {
   const tbody = document.getElementById('tabla-turnos');
-  const ordenados = turnosReservados.filter(t => !profesionalLogueado || t.profesionalId === profesionalLogueado.id).slice().sort((a,b) => {
+  const _viewAgenda = document.getElementById('view-agenda');
+  const _profIdAgenda = _viewAgenda?.dataset.profId || profesionalLogueado?.id;
+  const ordenados = turnosReservados.filter(t => !_profIdAgenda || t.profesionalId === _profIdAgenda).slice().sort((a,b) => {
     const fa = toInputDate(a.fecha) + ' ' + a.hora;
     const fb = toInputDate(b.fecha) + ' ' + b.hora;
     return fa.localeCompare(fb);
@@ -2082,7 +2121,9 @@ function irANuevoControl(pacienteId) {
 function renderDiagramaOcupacion() {
   const cont = document.getElementById('diagrama-ocupacion');
   // Usar agenda del profesional logueado
-  const _agProf = profesionalLogueado ? getAgendaProf(profesionalLogueado.id) : AGENDA_CONFIG;
+  const _viewAg = document.getElementById('view-agenda');
+  const _profIdDiag = _viewAg?.dataset.profId || profesionalLogueado?.id;
+  const _agProf = _profIdDiag ? getAgendaProf(_profIdDiag) : AGENDA_CONFIG;
   const fechasAtencion = getFechasAtencionConBloqueados(4, _agProf);
 
   if (fechasAtencion.length === 0 || _agProf.horarios.length === 0) {
@@ -2105,7 +2146,7 @@ function renderDiagramaOcupacion() {
       if (bloqueado) {
         html += `<div style="border-radius:var(--border-radius-md); padding:6px 4px; text-align:center; font-size:11px; background:var(--mr-coral-bg); color:var(--mr-coral-text); font-weight:500;">Bloqueado</div>`;
       } else {
-        const turno = turnosReservados.find(t => toInputDate(t.fecha)===toInputDate(f) && t.hora===h && (!profesionalLogueado || t.profesionalId===profesionalLogueado.id));
+        const turno = turnosReservados.find(t => toInputDate(t.fecha)===toInputDate(f) && t.hora===h && (!_profIdDiag || t.profesionalId===_profIdDiag));
         if (turno) {
           const pac = pacientes.find(p=>p.id===turno.pacienteId);
           const disp = dispositivos.find(d=>d.pacienteId===turno.pacienteId && d.activo);
