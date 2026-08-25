@@ -3170,23 +3170,42 @@ async function openModalVistaPaciente(pacienteId) {
         <button id="cvp-btn-cambiar-turno" class="btn-secondary" style="margin-top:10px;font-size:12px;padding:6px 12px;">Modificar turno</button>
       </div>`;
     }
+    // Selector de profesional — usar el logueado o el primero con agenda activa
+    const profsConAgendaAcc = profesionales.filter(p => getAgendaProf(p.id).moduloActivo);
+    const profTurnoId = profesionalLogueado?.rol === 'medico' && getAgendaProf(profesionalLogueado.id).moduloActivo
+      ? profesionalLogueado.id
+      : (profsConAgendaAcc[0]?.id || null);
+    const agTurno = profTurnoId ? getAgendaProf(profTurnoId) : null;
+
+    // Selector visible si hay más de un profesional con agenda activa
+    const selectorProfHTML = profsConAgendaAcc.length > 1 ? `
+      <div style="margin-bottom:10px;">
+        <label style="font-size:12px; color:var(--mr-text-muted);">Profesional</label>
+        <select id="acc-sel-prof" style="width:100%; margin-top:4px; font-size:13px; padding:6px 8px;">
+          ${profsConAgendaAcc.map(p => `<option value="${p.id}" ${p.id===profTurnoId?'selected':''}>${p.nombre}</option>`).join('')}
+        </select>
+      </div>` : profsConAgendaAcc.length === 1 ? `<div style="font-size:12px; color:var(--mr-text-muted); margin-bottom:8px;">Profesional: <strong>${profsConAgendaAcc[0].nombre}</strong></div>` : '';
+
     // Selector de turnos
     const hoy = new Date(); hoy.setHours(0,0,0,0);
-    const finH = new Date(hoy.getTime() + HORIZONTE_TURNOS_DIAS*86400000);
-    const horariosOnline = AGENDA_CONFIG.horarios.slice(0, TURNOS_ONLINE_POR_DIA);
+    const finH = new Date(hoy.getTime() + (agTurno?.horizonteTurnos||21)*86400000);
+    const horariosOnline = (agTurno?.horarios||[]).slice(0, agTurno?.turnosOnline||TURNOS_ONLINE_POR_DIA);
     const opciones = [];
+    if (agTurno) {
     for (let d = new Date(hoy); d <= finH; d.setDate(d.getDate()+1)) {
       const fechaStr = toInputDate(d);
-      if (AGENDA_CONFIG.diasAtencion.includes(d.getDay()) && !AGENDA_CONFIG.diasBloqueados.includes(fechaStr)) {
-        const libres = horariosOnline.filter(h => !turnosReservados.some(t => t.fecha===fechaStr && t.hora===h));
+      if (agTurno.diasAtencion.includes(d.getDay()) && !agTurno.diasBloqueados.includes(fechaStr)) {
+        const libres = horariosOnline.filter(h => !turnosReservados.some(t => t.fecha===fechaStr && t.hora===h && t.profesionalId===profTurnoId));
         if (libres.length > 0) opciones.push({fechaStr, libres, fechaLabel: fmtDateLong(fechaStr)});
       }
+    }
     }
     if (opciones.length === 0) {
       return `<div style="border:0.5px solid var(--mr-border);border-radius:10px;padding:1rem;margin-bottom:1rem;font-size:13px;color:var(--mr-text-muted);">No hay turnos disponibles en los próximos ${HORIZONTE_TURNOS_DIAS} días.</div>`;
     }
     let s = `<div style="border:0.5px solid var(--mr-border);border-radius:10px;padding:1rem;margin-bottom:1rem;">
-      <div style="font-weight:700;font-size:14px;color:var(--mr-primary);margin-bottom:10px;">Reservá tu turno</div>`;
+      <div style="font-weight:700;font-size:14px;color:var(--mr-primary);margin-bottom:10px;">Reservá tu turno</div>
+      ${selectorProfHTML}`;
     opciones.forEach((op, i) => {
       s += `<div style="margin-bottom:${i<opciones.length-1?'10px':'0'};">
         <div style="font-size:12px;color:var(--mr-text-muted);margin-bottom:4px;text-transform:capitalize;">${op.fechaLabel}</div>
@@ -3248,7 +3267,8 @@ async function openModalVistaPaciente(pacienteId) {
     // Botones de horario
     content.querySelectorAll('.cvp-btn-horario').forEach(btn => {
       btn.addEventListener('click', async () => {
-        const res = await reservarTurno_({pacienteId:pac.id, fecha:btn.dataset.fecha, hora:btn.dataset.hora, controlId:controlActivo.id, origen:'presencial'});
+        const _profIdAcc = document.getElementById('acc-sel-prof')?.value || profTurnoId || '';
+      const res = await reservarTurno_({pacienteId:pac.id, fecha:btn.dataset.fecha, hora:btn.dataset.hora, controlId:controlActivo.id, origen:'presencial', profesionalId:_profIdAcc});
         if (!res.ok) { alert(res.error||'Ese horario ya no está disponible.'); return; }
         turnoReservado = turnosReservados.find(t=>t.pacienteId===pac.id) || {fecha:btn.dataset.fecha, hora:btn.dataset.hora};
         document.getElementById('cvp-turno-section').innerHTML = buildTurnoHTML();
@@ -3256,6 +3276,14 @@ async function openModalVistaPaciente(pacienteId) {
       });
     });
   }
+    // Listener selector de profesional
+    const _accSelProf = content.querySelector('#acc-sel-prof');
+    if (_accSelProf) {
+      _accSelProf.addEventListener('change', () => {
+        document.getElementById('cvp-turno-section').innerHTML = buildTurnoHTML();
+        bindCvpListeners();
+      });
+    }
   bindCvpListeners();
 }
 
@@ -3970,8 +3998,8 @@ function renderConfig() {
         <div style="padding:1rem;" id="cfg-prof"></div>
       </div>
       <div style="border:0.5px solid var(--mr-border); border-radius:10px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-        <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); font-weight:700; font-size:13px; color:var(--mr-primary);">Configuración de agenda</div>
-        <div style="padding:1rem;" id="cfg-agenda"></div>
+        <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); font-weight:700; font-size:13px; color:var(--mr-primary);" style="display:none;">Configuración de agenda</div>
+        <div style="padding:1rem; display:none;" id="cfg-agenda"></div>
       </div>
       <div style="border:0.5px solid var(--mr-border); border-radius:10px; overflow:hidden; margin-bottom:1rem;">
         <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); font-weight:700; font-size:13px; color:var(--mr-primary);">Agendas por profesional</div>
