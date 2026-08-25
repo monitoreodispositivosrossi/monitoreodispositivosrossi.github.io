@@ -405,6 +405,9 @@ function tienePermiso(modulo) {
   return (ROLES[rol]?.modulos || []).includes(modulo);
 }
 
+let AGENDAS_PROFESIONALES = {};
+let profesionalSeleccionadoPaciente = null; // profesional elegido por el paciente para sacar turno // { profesionalId: { diasAtencion, horarios, diasBloqueados, ventanaReserva, horizonteTurnos, moduloActivo } }
+
 let FECHA_IMPLEMENTACION_STR = '2026-08-01';
 let FECHA_IMPLEMENTACION = new Date(2026, 7, 1); // local
 
@@ -474,14 +477,27 @@ function mapAccion(a) {
 
 // ===================== CARGA INICIAL =====================
 async function cargarDataset() {
-  const [pr,pa,di,co,tu,ac,cfg,cnt] = await Promise.all([
+  const [pr,pa,di,co,tu,ac,cfg,cnt,agp] = await Promise.all([
     sbGet('profesionales'), sbGet('pacientes'), sbGet('dispositivos'), sbGet('controles'),
-    sbGet('turnos_reservados'), sbGet('acciones_contacto'), sbGet('config_general'), sbGet('contadores')
+    sbGet('turnos_reservados'), sbGet('acciones_contacto'), sbGet('config_general'), sbGet('contadores'), sbGet('agenda_profesional')
   ]);
   profesionales = (pr||[]).map(p => ({ id:String(p.id||''), nombre:String(p.nombre||''), dni:String(p.dni||''), rol:String(p.rol||'medico') }));
   pacientes     = (pa||[]).map(mapPac);
   dispositivos  = (di||[]).map(mapDisp);
   controles     = (co||[]).map(mapCtrl);
+  // Cargar agendas por profesional
+  AGENDAS_PROFESIONALES = {};
+  (agp||[]).forEach(a => {
+    AGENDAS_PROFESIONALES[a.profesional_id] = {
+      diasAtencion:   Array.isArray(a.dias_atencion)   ? a.dias_atencion   : (typeof a.dias_atencion==='string'   ? JSON.parse(a.dias_atencion)   : []),
+      horarios:       Array.isArray(a.horarios)         ? a.horarios         : (typeof a.horarios==='string'         ? JSON.parse(a.horarios)         : []),
+      diasBloqueados: Array.isArray(a.dias_bloqueados) ? a.dias_bloqueados : (typeof a.dias_bloqueados==='string' ? JSON.parse(a.dias_bloqueados) : []),
+      ventanaReserva:  a.ventana_reserva  || 21,
+      horizonteTurnos: a.horizonte_turnos || 21,
+      moduloActivo:    !!a.modulo_activo
+    };
+  });
+  // Compatibilidad: si AGENDA_CONFIG global tiene datos, usarlo para el profesional activo
   turnosReservados  = (tu||[]).map(mapTurno).filter(t => { const hoy = toInputDate(new Date()); return t.fecha >= hoy; });
   accionesContacto  = (ac||[]).map(mapAccion);
   (cfg||[]).forEach(row => {
@@ -671,7 +687,7 @@ async function recalcularFechasProgramadas(pacienteId, dispositivoId) {
 async function reservarTurno_(datos) {
   // datos.fecha debe ser string 'YYYY-MM-DD'
   const fechaStr = typeof datos.fecha === 'string' ? datos.fecha.slice(0,10) : parseFechaSB(datos.fecha);
-  const existente = turnosReservados.find(t => t.fecha === fechaStr && t.hora === datos.hora);
+  const existente = turnosReservados.find(t => t.fecha === fechaStr && t.hora === datos.hora && (!datos.profesionalId || t.profesionalId === datos.profesionalId));
   if (existente && existente.controlId !== datos.controlId) return { ok:false, error:'Ese horario ya está ocupado.' };
   // Eliminar turno anterior del mismo control
   const anterior = turnosReservados.find(t => t.controlId === datos.controlId && datos.controlId);
@@ -718,6 +734,32 @@ async function eliminarProfesional_(id) {
 }
 
 // ===================== GUARDADO: CONFIGURACIÓN =====================
+// ===================== AGENDA POR PROFESIONAL =====================
+function getAgendaProf(profId) {
+  return AGENDAS_PROFESIONALES[profId] || {
+    diasAtencion: [], horarios: [], diasBloqueados: [],
+    ventanaReserva: 21, horizonteTurnos: 21, moduloActivo: false
+  };
+}
+
+async function guardarAgendaProf_(profId, cambios) {
+  const actual = getAgendaProf(profId);
+  const nueva = { ...actual, ...cambios };
+  AGENDAS_PROFESIONALES[profId] = nueva;
+  const row = {
+    profesional_id: profId,
+    dias_atencion:   JSON.stringify(nueva.diasAtencion),
+    horarios:        JSON.stringify(nueva.horarios),
+    dias_bloqueados: JSON.stringify(nueva.diasBloqueados),
+    ventana_reserva:  nueva.ventanaReserva,
+    horizonte_turnos: nueva.horizonteTurnos,
+    modulo_activo:    nueva.moduloActivo
+  };
+  // Intentar update, si no existe insertar
+  const ok = await sbUpdate('agenda_profesional', 'profesional_id=eq.'+profId, row);
+  if (!ok) await sbInsert('agenda_profesional', row);
+}
+
 async function guardarConfig_(clave, valor) {
   // Serializar objetos y arrays a JSON string para compatibilidad con Supabase text
   const valorSerial = (typeof valor === 'object') ? JSON.stringify(valor) : valor;
@@ -1438,6 +1480,143 @@ function renderAgenda() {
   `;
   renderTablaTurnos();
   renderDiagramaOcupacion();
+}
+
+
+function renderAgendasProfesionales() {
+  const cont = document.getElementById('cfg-agendas-prof');
+  if (!cont) return;
+  
+  // Solo admin puede ver esto
+  if (!tienePermiso('configuracion')) { cont.innerHTML = ''; return; }
+
+  let html = `<div style="margin-bottom:1rem;">`;
+  
+  profesionales.sort((a,b) => a.nombre.localeCompare(b.nombre)).forEach(prof => {
+    const agenda = getAgendaProf(prof.id);
+    const activo = agenda.moduloActivo;
+    html += `
+      <div class="list-row" style="flex-direction:column; align-items:stretch; gap:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <span style="font-weight:700; font-size:13px;">${prof.nombre}</span>
+            <span style="margin-left:8px; font-size:11px; padding:2px 8px; border-radius:10px; 
+              background:${activo?'var(--mr-teal-bg)':'var(--mr-bg)'}; 
+              color:${activo?'var(--mr-teal-text)':'var(--mr-text-muted)'}; 
+              border:1px solid ${activo?'var(--mr-teal-text)':'var(--mr-border)'};">
+              ${activo ? 'Activa' : 'Inactiva'}
+            </span>
+          </div>
+          <button class="btn-secondary btn-cfg-agenda-prof" data-prof="${prof.id}" style="font-size:12px;">
+            Configurar agenda
+          </button>
+        </div>
+        <div id="cfg-agenda-prof-${prof.id}" style="display:none;"></div>
+      </div>`;
+  });
+  
+  html += `</div>`;
+  cont.innerHTML = html;
+
+  cont.querySelectorAll('.btn-cfg-agenda-prof').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const profId = btn.dataset.prof;
+      const panel = document.getElementById('cfg-agenda-prof-' + profId);
+      if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        renderAgendaProfPanel(profId);
+        btn.textContent = 'Cerrar';
+      } else {
+        panel.style.display = 'none';
+        btn.textContent = 'Configurar agenda';
+      }
+    });
+  });
+}
+
+function renderAgendaProfPanel(profId) {
+  const panel = document.getElementById('cfg-agenda-prof-' + profId);
+  if (!panel) return;
+  const agenda = getAgendaProf(profId);
+  const DIAS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+
+  panel.innerHTML = `
+    <div style="border:1px solid var(--mr-border); border-radius:8px; padding:1rem; background:var(--mr-bg-alt); margin-top:8px;">
+      <!-- Módulo activo -->
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:1rem;">
+        <input type="checkbox" id="ap-activo-${profId}" ${agenda.moduloActivo?'checked':''}>
+        <label for="ap-activo-${profId}" style="margin:0; font-size:13px;">Módulo de agenda activo para este profesional</label>
+      </div>
+      <!-- Días de atención -->
+      <div style="margin-bottom:1rem;">
+        <label style="font-size:12px; font-weight:600;">Días de atención</label>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">
+          ${DIAS.map((d,i) => `<button class="ap-dia-btn${agenda.diasAtencion.includes(i)?' active':''}" data-dia="${i}" style="padding:4px 10px; border-radius:6px; font-size:12px; border:1px solid var(--mr-border); background:${agenda.diasAtencion.includes(i)?'var(--mr-primary)':''}; color:${agenda.diasAtencion.includes(i)?'#fff':'inherit'};">${d}</button>`).join('')}
+        </div>
+      </div>
+      <!-- Horarios -->
+      <div style="margin-bottom:1rem;">
+        <label style="font-size:12px; font-weight:600;">Horarios disponibles</label>
+        <div id="ap-horarios-${profId}" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;">
+          ${agenda.horarios.map(h => `<span style="display:flex; align-items:center; gap:4px; background:var(--mr-bg); border:1px solid var(--mr-border); border-radius:6px; padding:3px 8px; font-size:12px;">${h} <button class="ap-del-horario" data-h="${h}" style="border:none; background:none; cursor:pointer; color:var(--mr-coral-text);">×</button></span>`).join('')}
+        </div>
+        <div style="display:flex; gap:6px; margin-top:6px;">
+          <input type="time" id="ap-nuevo-horario-${profId}" style="font-size:12px; padding:4px 8px;">
+          <button class="btn-secondary ap-agregar-horario" data-prof="${profId}" style="font-size:12px;">+ Agregar</button>
+        </div>
+      </div>
+      <!-- Ventana de reserva -->
+      <div style="margin-bottom:1rem;">
+        <label style="font-size:12px; font-weight:600;">Ventana de reserva (días previos)</label>
+        <input type="number" id="ap-ventana-${profId}" value="${agenda.ventanaReserva}" min="1" max="90" style="width:80px; margin-left:8px; font-size:12px; padding:4px 8px;">
+      </div>
+      <!-- Botón guardar -->
+      <button class="btn-primary ap-guardar" data-prof="${profId}" style="font-size:13px;">Guardar agenda</button>
+    </div>`;
+
+  // Listeners días
+  panel.querySelectorAll('.ap-dia-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const dia = parseInt(btn.dataset.dia);
+      const ag = getAgendaProf(profId);
+      if (ag.diasAtencion.includes(dia)) ag.diasAtencion = ag.diasAtencion.filter(d => d !== dia);
+      else ag.diasAtencion.push(dia);
+      AGENDAS_PROFESIONALES[profId] = ag;
+      renderAgendaProfPanel(profId);
+    });
+  });
+
+  // Listener agregar horario
+  panel.querySelector('.ap-agregar-horario').addEventListener('click', () => {
+    const val = document.getElementById('ap-nuevo-horario-' + profId).value;
+    if (!val) return;
+    const ag = getAgendaProf(profId);
+    if (!ag.horarios.includes(val)) { ag.horarios.push(val); ag.horarios.sort(); }
+    AGENDAS_PROFESIONALES[profId] = ag;
+    renderAgendaProfPanel(profId);
+  });
+
+  // Listener eliminar horario
+  panel.querySelectorAll('.ap-del-horario').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ag = getAgendaProf(profId);
+      ag.horarios = ag.horarios.filter(h => h !== btn.dataset.h);
+      AGENDAS_PROFESIONALES[profId] = ag;
+      renderAgendaProfPanel(profId);
+    });
+  });
+
+  // Listener guardar
+  panel.querySelector('.ap-guardar').addEventListener('click', async () => {
+    const btn = panel.querySelector('.ap-guardar');
+    btn.disabled = true; btn.textContent = 'Guardando...';
+    const ag = getAgendaProf(profId);
+    ag.moduloActivo = document.getElementById('ap-activo-' + profId).checked;
+    ag.ventanaReserva = parseInt(document.getElementById('ap-ventana-' + profId).value) || 21;
+    await guardarAgendaProf_(profId, ag);
+    btn.disabled = false; btn.textContent = 'Guardar agenda';
+    renderAgendasProfesionales();
+  });
 }
 
 function renderAgendaConfig(targetId = 'cfg-agenda') {
@@ -3700,6 +3879,10 @@ function renderConfig() {
         <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); font-weight:700; font-size:13px; color:var(--mr-primary);">Configuración de agenda</div>
         <div style="padding:1rem;" id="cfg-agenda"></div>
       </div>
+      <div style="border:0.5px solid var(--mr-border); border-radius:10px; overflow:hidden; margin-bottom:1rem;">
+        <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); font-weight:700; font-size:13px; color:var(--mr-primary);">Agendas por profesional</div>
+        <div style="padding:1rem;" id="cfg-agendas-prof"></div>
+      </div>
       <div style="border:0.5px solid var(--mr-border); border-radius:10px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
         <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); font-weight:700; font-size:13px; color:var(--mr-primary);">Institución</div>
         <div style="padding:1rem;" id="cfg-institucion"></div>
@@ -3724,6 +3907,7 @@ function renderConfig() {
   `;
   renderProfesionales('cfg-prof');
   renderAgendaConfig('cfg-agenda');
+  renderAgendasProfesionales();
   renderCfgInstitucion();
   renderCfgInvestigacion();
   renderMarcas();
@@ -4804,21 +4988,53 @@ async function renderTurnoPaciente(controlActivo, pacienteActivo, estado) {
     return;
   }
 
-  // Generar opciones desde hoy hasta 21 días
+  // Obtener profesionales con agenda activa
+  const profsConAgenda = profesionales.filter(p => getAgendaProf(p.id).moduloActivo);
+
+  // Si no hay profesional seleccionado, mostrar selector
+  if (!profesionalSeleccionadoPaciente && profsConAgenda.length > 0) {
+    profesionalSeleccionadoPaciente = profsConAgenda[0].id; // default: primer profesional
+  }
+
+  const agendaActiva = profesionalSeleccionadoPaciente
+    ? getAgendaProf(profesionalSeleccionadoPaciente)
+    : null;
+
+  const finHorizonte2 = agendaActiva
+    ? new Date(hoy.getTime() + agendaActiva.ventanaReserva*86400000)
+    : finHorizonte;
+
+  // Selector de profesional
+  let selectorHTML = '';
+  if (profsConAgenda.length > 1) {
+    selectorHTML = `
+      <div style="margin-bottom:1rem;">
+        <label style="font-size:12px; color:var(--mr-text-muted);">Profesional</label>
+        <select id="pac-sel-prof" style="width:100%; margin-top:4px; font-size:13px; padding:6px 8px;">
+          ${profsConAgenda.map(p => `<option value="${p.id}" ${p.id===profesionalSeleccionadoPaciente?'selected':''}>${p.nombre}</option>`).join('')}
+        </select>
+      </div>`;
+  } else if (profsConAgenda.length === 1) {
+    selectorHTML = `<div style="font-size:12px; color:var(--mr-text-muted); margin-bottom:8px;">Profesional: <strong>${profsConAgenda[0].nombre}</strong></div>`;
+  }
+
+  // Generar opciones desde hoy hasta ventana de reserva
   const opciones = [];
-  for (let d = new Date(hoy); d <= finHorizonte; d.setDate(d.getDate()+1)) {
-    if (AGENDA_CONFIG.diasAtencion.includes(d.getDay()) && !AGENDA_CONFIG.diasBloqueados.includes(toInputDate(d))) {
+  if (agendaActiva) {
+  for (let d = new Date(hoy); d <= finHorizonte2; d.setDate(d.getDate()+1)) {
+    if (agendaActiva.diasAtencion.includes(d.getDay()) && !agendaActiva.diasBloqueados.includes(toInputDate(d))) {
       const fecha = new Date(d);
-      // Solo los primeros TURNOS_ONLINE_POR_DIA horarios del día son para online
-      const horariosOnline = AGENDA_CONFIG.horarios.slice(0, TURNOS_ONLINE_POR_DIA);
-      const libres = horariosOnline.filter(h => !turnosReservados.some(t => toInputDate(t.fecha)===toInputDate(fecha) && t.hora===h));
+      const horariosOnline = agendaActiva.horarios.slice(0, TURNOS_ONLINE_POR_DIA);
+      const libres = horariosOnline.filter(h => !turnosReservados.some(t => toInputDate(t.fecha)===toInputDate(fecha) && t.profesionalId===profesionalSeleccionadoPaciente && t.hora===h));
       if (libres.length > 0) opciones.push({fecha, libres});
     }
   }
+  } // fin if agendaActiva
 
   let html = `
     <div style="border:0.5px solid var(--mr-border); border-radius:10px; padding:1rem;">
       <div style="font-weight:700; font-size:14px; color:var(--mr-primary); margin-bottom:10px;">Reservá tu turno</div>
+      ${selectorHTML}
   `;
 
   if (opciones.length === 0) {
@@ -4842,7 +5058,7 @@ async function renderTurnoPaciente(controlActivo, pacienteActivo, estado) {
 
   document.querySelectorAll('.btn-horario').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const _dtP = {pacienteId:pacienteActivo.id, fecha:btn.dataset.fecha, hora:btn.dataset.hora, controlId:controlActivo.id, origen:'online'};
+      const _dtP = {pacienteId:pacienteActivo.id, fecha:btn.dataset.fecha, hora:btn.dataset.hora, controlId:controlActivo.id, origen:'online', profesionalId:profesionalSeleccionadoPaciente||''};
       const _rTP = await reservarTurno_(_dtP);
       if (!_rTP.ok) { alert(_rTP.error||'Ese horario ya no está disponible.'); renderTurnoPaciente(controlActivo, pacienteActivo, estado); return; }
       turnoSeleccionadoPaciente = {fecha: btn.dataset.fecha, hora: btn.dataset.hora};
