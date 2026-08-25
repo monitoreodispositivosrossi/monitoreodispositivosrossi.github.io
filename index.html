@@ -1563,7 +1563,7 @@ function renderAgendaProfPanel(profId) {
           ${agenda.horarios.length > 0 ? agenda.horarios.map(h => `<span style="display:flex; align-items:center; gap:4px; background:var(--mr-bg); border:1px solid var(--mr-border); border-radius:6px; padding:3px 8px; font-size:12px;">${h} <button class="ap-del-horario" data-h="${h}" style="border:none; background:none; cursor:pointer; color:var(--mr-coral-text); font-size:14px; line-height:1;">×</button></span>`).join('') : '<span style="font-size:12px; color:var(--mr-text-muted);">Sin horarios cargados</span>'}
         </div>
         <div style="display:flex; gap:8px; align-items:center;">
-          <input type="time" id="ap-nuevo-horario-${profId}" style="font-size:12px; padding:5px 8px; border:1px solid var(--mr-border); border-radius:6px;">
+          <input type="time" id="ap-nuevo-horario-${profId}" style="font-size:12px; padding:5px 8px; border:1px solid var(--mr-border); border-radius:6px; width:120px;">
           <button class="btn-secondary ap-agregar-horario" data-prof="${profId}" style="font-size:12px; display:flex; align-items:center; gap:4px;">+ Agregar</button>
         </div>
       </div>
@@ -1601,7 +1601,7 @@ function renderAgendaProfPanel(profId) {
           ${agenda.diasBloqueados.length > 0 ? agenda.diasBloqueados.map(d => `<span style="display:inline-flex; align-items:center; gap:4px; background:var(--mr-bg); border:1px solid var(--mr-border); border-radius:6px; padding:3px 8px; font-size:12px; margin:2px;">${fmtDate(d)} <button class="ap-del-bloqueado" data-d="${d}" style="border:none; background:none; cursor:pointer; color:var(--mr-coral-text); font-size:14px; line-height:1;">×</button></span>`).join('') : '<span style="font-size:12px; color:var(--mr-text-muted);">Sin días bloqueados</span>'}
         </div>
         <div style="display:flex; gap:8px; align-items:center;">
-          <input type="date" id="ap-nuevo-bloqueado-${profId}" style="font-size:12px; padding:5px 8px; border:1px solid var(--mr-border); border-radius:6px;">
+          <input type="date" id="ap-nuevo-bloqueado-${profId}" style="font-size:12px; padding:5px 8px; border:1px solid var(--mr-border); border-radius:6px; width:150px;">
           <button class="btn-secondary ap-agregar-bloqueado" data-prof="${profId}" style="font-size:12px;">Bloquear día</button>
         </div>
       </div>
