@@ -1583,7 +1583,7 @@ function renderAgendaProfPanel(profId) {
           <input type="number" id="ap-ventana-${profId}" value="${agenda.ventanaReserva||21}" min="1" max="90" style="width:80px; font-size:13px; padding:5px 8px; border:1px solid var(--mr-border); border-radius:6px;">
           <button class="btn-primary ap-guardar-ventana" data-prof="${profId}" style="font-size:12px; padding:5px 12px;">Guardar</button>
         </div>
-        <div style="font-size:11px; color:var(--mr-text-muted); margin-top:4px;">Días previos a la fecha programada en que el paciente puede reservar turno.</div>
+
       </div>
       <!-- Horizonte de turnos -->
       <div style="margin-bottom:1.2rem;">
@@ -5137,6 +5137,16 @@ async function renderTurnoPaciente(controlActivo, pacienteActivo, estado) {
 
   html += `</div>`;
   view.innerHTML = html;
+
+  // Listener selector de profesional
+  const _selProf = document.getElementById('pac-sel-prof');
+  if (_selProf) {
+    _selProf.addEventListener('change', () => {
+      profesionalSeleccionadoPaciente = _selProf.value;
+      renderTurnoPaciente(controlActivo, pacienteActivo, estado).catch(e=>console.error(e));
+    });
+  }
+
 
   document.querySelectorAll('.btn-horario').forEach(btn => {
     btn.addEventListener('click', async () => {
