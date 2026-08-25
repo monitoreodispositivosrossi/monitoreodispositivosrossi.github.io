@@ -1399,16 +1399,22 @@ async function openModalAccion(controlId, tipo) {
   const pac = control ? pacientes.find(p=>p.id===control.pacienteId) : null;
 
   // Generar opciones de turno (próximos 21 días)
+  // Generar opciones de turno usando agenda del profesional logueado o el primero activo
+  const _profsAccion = profesionales.filter(p => getAgendaProf(p.id).moduloActivo);
+  const _profAccionId = profesionalLogueado?.rol==='medico' && getAgendaProf(profesionalLogueado.id).moduloActivo ? profesionalLogueado.id : (_profsAccion[0]?.id||null);
+  const _agAccion = _profAccionId ? getAgendaProf(_profAccionId) : null;
   const hoy = new Date(); hoy.setHours(0,0,0,0);
-  const finHorizonte = new Date(hoy.getTime() + HORIZONTE_TURNOS_DIAS*86400000);
+  const finHorizonte = new Date(hoy.getTime() + (_agAccion?.horizonteTurnos||21)*86400000);
   const opciones = [];
+  if (_agAccion) {
   for (let d = new Date(hoy); d <= finHorizonte; d.setDate(d.getDate()+1)) {
-    if (AGENDA_CONFIG.diasAtencion.includes(d.getDay()) && !AGENDA_CONFIG.diasBloqueados.includes(toInputDate(d))) {
+    if (_agAccion.diasAtencion.includes(d.getDay()) && !_agAccion.diasBloqueados.includes(toInputDate(d))) {
       const fecha = new Date(d);
-      const libres = AGENDA_CONFIG.horarios.filter(h => !turnosReservados.some(t => toInputDate(t.fecha)===toInputDate(fecha) && t.hora===h));
+      const libres = (_agAccion.horarios||[]).slice(0, _agAccion.turnosOnline||TURNOS_ONLINE_POR_DIA).filter(h => !turnosReservados.some(t => toInputDate(t.fecha)===toInputDate(fecha) && t.profesionalId===_profAccionId && t.hora===h));
       if (libres.length > 0) opciones.push({fecha, libres});
     }
   }
+  } // fin if _agAccion
 
   let turnoOptsHTML = `<option value="">Sin asignar turno ahora</option>`;
   opciones.forEach(op => {
