@@ -494,6 +494,7 @@ async function cargarDataset() {
       diasBloqueados: Array.isArray(a.dias_bloqueados) ? a.dias_bloqueados : (typeof a.dias_bloqueados==='string' ? JSON.parse(a.dias_bloqueados) : []),
       ventanaReserva:  a.ventana_reserva  || 21,
       horizonteTurnos: a.horizonte_turnos || 21,
+      turnosOnline:    a.turnos_online    || 2,
       moduloActivo:    !!a.modulo_activo
     };
   });
@@ -753,6 +754,7 @@ async function guardarAgendaProf_(profId, cambios) {
     dias_bloqueados: JSON.stringify(nueva.diasBloqueados),
     ventana_reserva:  nueva.ventanaReserva,
     horizonte_turnos: nueva.horizonteTurnos,
+    turnos_online:    nueva.turnosOnline || 2,
     modulo_activo:    nueva.moduloActivo
   };
   // Intentar update, si no existe insertar
@@ -1543,35 +1545,70 @@ function renderAgendaProfPanel(profId) {
   panel.innerHTML = `
     <div style="border:1px solid var(--mr-border); border-radius:8px; padding:1rem; background:var(--mr-bg-alt); margin-top:8px;">
       <!-- Módulo activo -->
-      <div style="display:flex; align-items:center; gap:8px; margin-bottom:1rem;">
-        <input type="checkbox" id="ap-activo-${profId}" ${agenda.moduloActivo?'checked':''}>
-        <label for="ap-activo-${profId}" style="margin:0; font-size:13px;">Módulo de agenda activo para este profesional</label>
+      <div style="display:flex; align-items:center; gap:8px; margin-bottom:1.2rem; padding-bottom:1rem; border-bottom:1px solid var(--mr-border);">
+        <input type="checkbox" id="ap-activo-${profId}" ${agenda.moduloActivo?'checked':''} style="width:16px; height:16px;">
+        <label for="ap-activo-${profId}" style="margin:0; font-size:13px; font-weight:600;">Módulo de agenda activo para este profesional</label>
       </div>
       <!-- Días de atención -->
-      <div style="margin-bottom:1rem;">
-        <label style="font-size:12px; font-weight:600;">Días de atención</label>
-        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">
-          ${DIAS.map((d,i) => `<button class="ap-dia-btn${agenda.diasAtencion.includes(i)?' active':''}" data-dia="${i}" style="padding:4px 10px; border-radius:6px; font-size:12px; border:1px solid var(--mr-border); background:${agenda.diasAtencion.includes(i)?'var(--mr-primary)':''}; color:${agenda.diasAtencion.includes(i)?'#fff':'inherit'};">${d}</button>`).join('')}
+      <div style="margin-bottom:1.2rem;">
+        <label style="font-size:13px; font-weight:600; display:block; margin-bottom:8px;">Días de atención</label>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          ${DIAS.map((d,i) => `<button class="ap-dia-btn" data-dia="${i}" style="padding:5px 12px; border-radius:6px; font-size:12px; border:1px solid ${agenda.diasAtencion.includes(i)?'var(--mr-primary)':'var(--mr-border)'}; background:${agenda.diasAtencion.includes(i)?'var(--mr-primary)':''}; color:${agenda.diasAtencion.includes(i)?'#fff':'inherit'}; cursor:pointer;">${d}</button>`).join('')}
         </div>
       </div>
       <!-- Horarios -->
-      <div style="margin-bottom:1rem;">
-        <label style="font-size:12px; font-weight:600;">Horarios disponibles</label>
-        <div id="ap-horarios-${profId}" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;">
-          ${agenda.horarios.map(h => `<span style="display:flex; align-items:center; gap:4px; background:var(--mr-bg); border:1px solid var(--mr-border); border-radius:6px; padding:3px 8px; font-size:12px;">${h} <button class="ap-del-horario" data-h="${h}" style="border:none; background:none; cursor:pointer; color:var(--mr-coral-text);">×</button></span>`).join('')}
+      <div style="margin-bottom:1.2rem;">
+        <label style="font-size:13px; font-weight:600; display:block; margin-bottom:8px;">Horarios disponibles (HH:MM)</label>
+        <div id="ap-horarios-${profId}" style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;">
+          ${agenda.horarios.length > 0 ? agenda.horarios.map(h => `<span style="display:flex; align-items:center; gap:4px; background:var(--mr-bg); border:1px solid var(--mr-border); border-radius:6px; padding:3px 8px; font-size:12px;">${h} <button class="ap-del-horario" data-h="${h}" style="border:none; background:none; cursor:pointer; color:var(--mr-coral-text); font-size:14px; line-height:1;">×</button></span>`).join('') : '<span style="font-size:12px; color:var(--mr-text-muted);">Sin horarios cargados</span>'}
         </div>
-        <div style="display:flex; gap:6px; margin-top:6px;">
-          <input type="time" id="ap-nuevo-horario-${profId}" style="font-size:12px; padding:4px 8px;">
-          <button class="btn-secondary ap-agregar-horario" data-prof="${profId}" style="font-size:12px;">+ Agregar</button>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="time" id="ap-nuevo-horario-${profId}" style="font-size:12px; padding:5px 8px; border:1px solid var(--mr-border); border-radius:6px;">
+          <button class="btn-secondary ap-agregar-horario" data-prof="${profId}" style="font-size:12px; display:flex; align-items:center; gap:4px;">+ Agregar</button>
         </div>
+      </div>
+      <!-- Turnos online por día -->
+      <div style="margin-bottom:1.2rem;">
+        <label style="font-size:13px; font-weight:600; display:block; margin-bottom:4px;">Turnos habilitados para reserva online por día</label>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="number" id="ap-online-${profId}" value="${agenda.turnosOnline||2}" min="0" max="20" style="width:80px; font-size:13px; padding:5px 8px; border:1px solid var(--mr-border); border-radius:6px;">
+          <button class="btn-primary ap-guardar-online" data-prof="${profId}" style="font-size:12px; padding:5px 12px;">Guardar</button>
+        </div>
+        <div style="font-size:11px; color:var(--mr-text-muted); margin-top:4px;">Los turnos restantes quedan reservados para atención presencial.</div>
       </div>
       <!-- Ventana de reserva -->
-      <div style="margin-bottom:1rem;">
-        <label style="font-size:12px; font-weight:600;">Ventana de reserva (días previos)</label>
-        <input type="number" id="ap-ventana-${profId}" value="${agenda.ventanaReserva}" min="1" max="90" style="width:80px; margin-left:8px; font-size:12px; padding:4px 8px;">
+      <div style="margin-bottom:1.2rem;">
+        <label style="font-size:13px; font-weight:600; display:block; margin-bottom:4px;">Ventana de reserva para pacientes (días)</label>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="number" id="ap-ventana-${profId}" value="${agenda.ventanaReserva||21}" min="1" max="90" style="width:80px; font-size:13px; padding:5px 8px; border:1px solid var(--mr-border); border-radius:6px;">
+          <button class="btn-primary ap-guardar-ventana" data-prof="${profId}" style="font-size:12px; padding:5px 12px;">Guardar</button>
+        </div>
+        <div style="font-size:11px; color:var(--mr-text-muted); margin-top:4px;">Días previos a la fecha programada en que el paciente puede reservar turno.</div>
       </div>
-      <!-- Botón guardar -->
-      <button class="btn-primary ap-guardar" data-prof="${profId}" style="font-size:13px;">Guardar agenda</button>
+      <!-- Horizonte de turnos -->
+      <div style="margin-bottom:1.2rem;">
+        <label style="font-size:13px; font-weight:600; display:block; margin-bottom:4px;">Horizonte de turnos disponibles para el paciente (días)</label>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="number" id="ap-horizonte-${profId}" value="${agenda.horizonteTurnos||21}" min="1" max="180" style="width:80px; font-size:13px; padding:5px 8px; border:1px solid var(--mr-border); border-radius:6px;">
+          <button class="btn-primary ap-guardar-horizonte" data-prof="${profId}" style="font-size:12px; padding:5px 12px;">Guardar</button>
+        </div>
+        <div style="font-size:11px; color:var(--mr-text-muted); margin-top:4px;">El paciente puede ver y reservar turnos dentro de este rango desde hoy.</div>
+      </div>
+      <!-- Días bloqueados -->
+      <div style="margin-bottom:1.2rem;">
+        <label style="font-size:13px; font-weight:600; display:block; margin-bottom:8px;">Días bloqueados (feriados / ausencias)</label>
+        <div id="ap-bloqueados-${profId}" style="margin-bottom:8px;">
+          ${agenda.diasBloqueados.length > 0 ? agenda.diasBloqueados.map(d => `<span style="display:inline-flex; align-items:center; gap:4px; background:var(--mr-bg); border:1px solid var(--mr-border); border-radius:6px; padding:3px 8px; font-size:12px; margin:2px;">${fmtDate(d)} <button class="ap-del-bloqueado" data-d="${d}" style="border:none; background:none; cursor:pointer; color:var(--mr-coral-text); font-size:14px; line-height:1;">×</button></span>`).join('') : '<span style="font-size:12px; color:var(--mr-text-muted);">Sin días bloqueados</span>'}
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <input type="date" id="ap-nuevo-bloqueado-${profId}" style="font-size:12px; padding:5px 8px; border:1px solid var(--mr-border); border-radius:6px;">
+          <button class="btn-secondary ap-agregar-bloqueado" data-prof="${profId}" style="font-size:12px;">Bloquear día</button>
+        </div>
+      </div>
+      <!-- Botón guardar general -->
+      <div style="border-top:1px solid var(--mr-border); padding-top:1rem; margin-top:0.5rem;">
+        <button class="btn-primary ap-guardar" data-prof="${profId}" style="font-size:13px;">Guardar agenda</button>
+      </div>
     </div>`;
 
   // Listeners días
@@ -1606,13 +1643,58 @@ function renderAgendaProfPanel(profId) {
     });
   });
 
-  // Listener guardar
+  // Listener guardar online
+  panel.querySelector('.ap-guardar-online')?.addEventListener('click', async () => {
+    const ag = getAgendaProf(profId);
+    ag.turnosOnline = parseInt(document.getElementById('ap-online-' + profId).value) || 2;
+    await guardarAgendaProf_(profId, ag);
+  });
+
+  // Listener guardar ventana
+  panel.querySelector('.ap-guardar-ventana')?.addEventListener('click', async () => {
+    const ag = getAgendaProf(profId);
+    ag.ventanaReserva = parseInt(document.getElementById('ap-ventana-' + profId).value) || 21;
+    await guardarAgendaProf_(profId, ag);
+  });
+
+  // Listener guardar horizonte
+  panel.querySelector('.ap-guardar-horizonte')?.addEventListener('click', async () => {
+    const ag = getAgendaProf(profId);
+    ag.horizonteTurnos = parseInt(document.getElementById('ap-horizonte-' + profId).value) || 21;
+    await guardarAgendaProf_(profId, ag);
+  });
+
+  // Listener agregar día bloqueado
+  panel.querySelector('.ap-agregar-bloqueado')?.addEventListener('click', () => {
+    const val = document.getElementById('ap-nuevo-bloqueado-' + profId).value;
+    if (!val) return;
+    const ag = getAgendaProf(profId);
+    if (!ag.diasBloqueados.includes(val)) { ag.diasBloqueados.push(val); ag.diasBloqueados.sort(); }
+    AGENDAS_PROFESIONALES[profId] = ag;
+    guardarAgendaProf_(profId, ag).catch(e=>console.error(e));
+    renderAgendaProfPanel(profId);
+  });
+
+  // Listener eliminar día bloqueado
+  panel.querySelectorAll('.ap-del-bloqueado').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ag = getAgendaProf(profId);
+      ag.diasBloqueados = ag.diasBloqueados.filter(d => d !== btn.dataset.d);
+      AGENDAS_PROFESIONALES[profId] = ag;
+      guardarAgendaProf_(profId, ag).catch(e=>console.error(e));
+      renderAgendaProfPanel(profId);
+    });
+  });
+
+  // Listener guardar general
   panel.querySelector('.ap-guardar').addEventListener('click', async () => {
     const btn = panel.querySelector('.ap-guardar');
     btn.disabled = true; btn.textContent = 'Guardando...';
     const ag = getAgendaProf(profId);
     ag.moduloActivo = document.getElementById('ap-activo-' + profId).checked;
     ag.ventanaReserva = parseInt(document.getElementById('ap-ventana-' + profId).value) || 21;
+    ag.horizonteTurnos = parseInt(document.getElementById('ap-horizonte-' + profId).value) || 21;
+    ag.turnosOnline = parseInt(document.getElementById('ap-online-' + profId).value) || 2;
     await guardarAgendaProf_(profId, ag);
     btn.disabled = false; btn.textContent = 'Guardar agenda';
     renderAgendasProfesionales();
