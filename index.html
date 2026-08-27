@@ -5419,7 +5419,7 @@ function renderPacienteView() {
 
     <div style="border:0.5px solid var(--mr-border); border-radius:10px; padding:1rem;">
        <div style="font-size:13px; color:var(--mr-text-muted); margin-bottom:8px;">Historial de controles</div>
-       ${historial.length > 0 ? historial.map(c=>{ const esProsp = calcularFase(c)==='Prospectivo'; const btnPdf = ''; // PDF deshabilitado temporalmente return `
+       ${historial.length > 0 ? historial.map(c=>{ const btnPdf = ''; return `
          <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:4px 0; border-bottom:0.5px solid var(--mr-border);">
            <span>Control de dispositivo · ${fmtDate(c.fechaControl)}</span>
            ${btnPdf}
@@ -5427,7 +5427,7 @@ function renderPacienteView() {
    `;
 
   view.innerHTML = html;
-  view.innerHTML = html;
+  renderTurnoPaciente(controlActivo, pacienteActivo, estado).catch(e=>console.error('renderTurnoPaciente:',e));
   renderTurnoPaciente(controlActivo, pacienteActivo, estado).catch(e=>console.error('renderTurnoPaciente:',e));
 }
 
