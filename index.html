@@ -14,6 +14,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="MODI ROSSI">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
   <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MODI ROSSI · Monitoreo de Dispositivos</title>
@@ -406,6 +407,7 @@ function tienePermiso(modulo) {
 }
 
 let AGENDAS_PROFESIONALES = {};
+let MEMBRETE_URL = ''; // URL de la hoja membretada
 let profesionalSeleccionadoPaciente = null; // profesional elegido por el paciente para sacar turno // { profesionalId: { diasAtencion, horarios, diasBloqueados, ventanaReserva, horizonteTurnos, moduloActivo } }
 
 let FECHA_IMPLEMENTACION_STR = '2026-08-01';
@@ -459,7 +461,9 @@ function mapCtrl(c) {
     fechaProgramada: parseFechaSB(c.fecha_programada), fechaControl: parseFechaSB(c.fecha_control),
     proxControl: parseFechaSB(c.prox_control), proxMeses: Number(c.prox_meses||6),
     bateriaAnios: String(c.bateria_anios||''), bateriaMeses: String(c.bateria_meses||''),
-    eriProximo: String(c.eri_proximo||'No'), parametrosTecnicos: c.parametros_tecnicos||{},
+    eriProximo: String(c.eri_proximo||'No'),
+    enEri: !!c.en_eri,
+    fechaEri: c.fecha_eri||null, parametrosTecnicos: c.parametros_tecnicos||{},
     fase: c.fase||null, indicaciones: String(c.indicaciones||''),
     riesgoManual: c.riesgo_manual === true, fechaCarga: c.fecha_carga ? String(c.fecha_carga) : ''
   };
@@ -481,7 +485,7 @@ async function cargarDataset() {
     sbGet('profesionales'), sbGet('pacientes'), sbGet('dispositivos'), sbGet('controles'),
     sbGet('turnos_reservados'), sbGet('acciones_contacto'), sbGet('config_general'), sbGet('contadores'), sbGet('agenda_profesional')
   ]);
-  profesionales = (pr||[]).map(p => ({ id:String(p.id||''), nombre:String(p.nombre||''), dni:String(p.dni||''), rol:String(p.rol||'medico') }));
+  profesionales = (pr||[]).map(p => ({ id:String(p.id||''), nombre:String(p.nombre||''), dni:String(p.dni||''), rol:String(p.rol||'medico'), firmaUrl:String(p.firma_url||'') }));
   pacientes     = (pa||[]).map(mapPac);
   dispositivos  = (di||[]).map(mapDisp);
   controles     = (co||[]).map(mapCtrl);
@@ -510,6 +514,9 @@ async function cargarDataset() {
     else if (row.clave === 'VENTANA_DIAS')       VENTANA_DIAS         = Number(v);
     else if (row.clave === 'HORIZONTE_TURNOS_DIAS') HORIZONTE_TURNOS_DIAS = Number(v);
     else if (row.clave === 'TURNOS_ONLINE_POR_DIA') TURNOS_ONLINE_POR_DIA = Number(v);
+    else if (row.clave === 'MEMBRETE_URL') {
+      MEMBRETE_URL = typeof v === 'string' ? v.replace(/^"|"$/g,'') : '';
+    }
     else if (row.clave === 'FECHA_IMPLEMENTACION_STR') {
       FECHA_IMPLEMENTACION_STR = typeof v === 'string' ? v : String(v);
       FECHA_IMPLEMENTACION = parseLocalDate(FECHA_IMPLEMENTACION_STR);
@@ -619,7 +626,9 @@ async function guardarNuevoControl_(datos) {
     fecha_programada: toD(datos.fechaProgramada), fecha_control: toD(datos.fechaControl),
     prox_control: toD(datos.proxControl), prox_meses: datos.proxMeses||6,
     bateria_anios: datos.bateriaAnios||'', bateria_meses: datos.bateriaMeses||'',
-    eri_proximo: datos.eriProximo||'No', parametros_tecnicos: datos.parametrosTecnicos||{},
+    eri_proximo: datos.eriProximo||'No',
+    en_eri: !!datos.enEri,
+    fecha_eri: datos.fechaEri||null, parametros_tecnicos: datos.parametrosTecnicos||{},
     fase: datos.fase||null, indicaciones: datos.indicaciones||'',
     riesgo_manual: !!datos.riesgoManual,
     fecha_carga: new Date().toISOString()
@@ -640,6 +649,8 @@ async function actualizarControl_(controlId, cambios) {
   if (cambios.bateriaAnios    !== undefined) upd.bateria_anios     = cambios.bateriaAnios;
   if (cambios.bateriaMeses    !== undefined) upd.bateria_meses     = cambios.bateriaMeses;
   if (cambios.eriProximo      !== undefined) upd.eri_proximo       = cambios.eriProximo;
+  if (cambios.enEri           !== undefined) upd.en_eri            = cambios.enEri;
+  if (cambios.fechaEri        !== undefined) upd.fecha_eri         = cambios.fechaEri||null;
   if (cambios.parametrosTecnicos !== undefined) upd.parametros_tecnicos = cambios.parametrosTecnicos;
   if (cambios.indicaciones    !== undefined) upd.indicaciones      = cambios.indicaciones;
   if (cambios.riesgoManual    !== undefined) upd.riesgo_manual     = !!cambios.riesgoManual;
@@ -1086,6 +1097,154 @@ function datosIncompletos(c) {
 }
 
 /* ===================== CONTROLES PENDIENTES (no realizados) ===================== */
+
+// ===================== GENERACIÓN DE PDF HC =====================
+async function generarPDFResumen(controlId) {
+  const { PDFDocument, rgb, StandardFonts } = PDFLib;
+  const ctrl = controles.find(c => c.id === controlId);
+  if (!ctrl) return;
+  const pac = pacientes.find(p => p.id === ctrl.pacienteId);
+  const disp = dispositivos.find(d => d.id === ctrl.dispositivoId);
+  const prof = profesionales.find(p => p.id === ctrl.profesionalId);
+  if (!pac) return;
+
+  // ── Cargar membrete PDF ──
+  let membreteBytes = null;
+  if (MEMBRETE_URL) {
+    try {
+      const resp = await fetch(MEMBRETE_URL);
+      membreteBytes = await resp.arrayBuffer();
+    } catch(e) { console.warn('No se pudo cargar el membrete:', e); }
+  }
+
+  // ── Crear PDF ──
+  const pdfDoc = await PDFDocument.create();
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+  // Cargar membrete como plantilla si existe
+  let membretePdf = null;
+  let membretePageTemplate = null;
+  if (membreteBytes) {
+    try {
+      membretePdf = await PDFDocument.load(membreteBytes);
+      const [paginaPlantilla] = await pdfDoc.copyPages(membretePdf, [0]);
+      membretePageTemplate = paginaPlantilla;
+    } catch(e) { console.warn('Error cargando membrete PDF:', e); }
+  }
+
+  // ── Generar texto del resumen ──
+  const tipo = disp ? (TIPOS[disp.tipo] || {nombre: disp.tipo||'?'}).nombre : '-';
+  const nombrePac = pac.nombre.split(', ').reverse().join(' ');
+
+  const lineas = [];
+  lineas.push({ texto: `CONTROL DE DISPOSITIVO DE ESTIMULACIÓN CARDÍACA`, bold: true, size: 10 });
+  lineas.push({ texto: `${nombrePac.toUpperCase()} - GENERADO POR MODI ROSSI`, bold: true, size: 10 });
+  lineas.push({ texto: '', bold: false, size: 9 });
+  lineas.push({ texto: `Fecha de control: ${fmtDateLong(ctrl.fechaControl)}`, bold: false, size: 9 });
+  lineas.push({ texto: `Próximo control: ${fmtDateLong(ctrl.proxControl)}`, bold: false, size: 9 });
+  if (prof) lineas.push({ texto: `Profesional: ${prof.nombre}`, bold: false, size: 9 });
+  lineas.push({ texto: '', bold: false, size: 9 });
+  lineas.push({ texto: 'DATOS DEL PACIENTE', bold: true, size: 9 });
+  lineas.push({ texto: `Nombre: ${pac.nombre}`, bold: false, size: 9 });
+  lineas.push({ texto: `DNI: ${pac.dni}`, bold: false, size: 9 });
+  if (pac.fechaNacimiento) lineas.push({ texto: `Fecha de nacimiento: ${fmtDate(pac.fechaNacimiento)}`, bold: false, size: 9 });
+  lineas.push({ texto: '', bold: false, size: 9 });
+  lineas.push({ texto: 'DISPOSITIVO', bold: true, size: 9 });
+  lineas.push({ texto: `Tipo: ${tipo}`, bold: false, size: 9 });
+  if (disp?.marca) lineas.push({ texto: `Marca: ${disp.marca}`, bold: false, size: 9 });
+  if (disp?.modelo) lineas.push({ texto: `Modelo: ${disp.modelo}`, bold: false, size: 9 });
+  if (disp?.fechaImplante) lineas.push({ texto: `Fecha de implante: ${fmtDate(disp.fechaImplante)}`, bold: false, size: 9 });
+  if (ctrl.bateriaAnios || ctrl.bateriaMeses) {
+    lineas.push({ texto: '', bold: false, size: 9 });
+    lineas.push({ texto: 'BATERÍA', bold: true, size: 9 });
+    lineas.push({ texto: `Vida restante: ${fmtVidaBateria(ctrl)}`, bold: false, size: 9 });
+    if (ctrl.eriProximo === 'Sí') lineas.push({ texto: 'ERI próximo: Sí', bold: false, size: 9 });
+  }
+  if (ctrl.indicaciones) {
+    lineas.push({ texto: '', bold: false, size: 9 });
+    lineas.push({ texto: 'INDICACIONES', bold: true, size: 9 });
+    ctrl.indicaciones.split('\n').forEach(l => lineas.push({ texto: l, bold: false, size: 9 }));
+  }
+
+  // ── Renderizar páginas ──
+  const W_pt = 595, H_pt = 842; // A4 en puntos
+  const margenX = 57, yInicio = H_pt - 130, yFin = 100; // márgenes: ~20mm, zona texto entre 45mm y 35mm del fondo
+  const lineHeight = 14;
+
+  const nuevaPagina = async () => {
+    let page;
+    if (membretePageTemplate) {
+      const [copia] = await pdfDoc.copyPages(membretePdf, [0]);
+      page = pdfDoc.addPage(copia);
+    } else {
+      page = pdfDoc.addPage([W_pt, H_pt]);
+    }
+    return page;
+  };
+
+  let page = await nuevaPagina();
+  let y = yInicio;
+
+  for (const linea of lineas) {
+    if (y < yFin) {
+      page = await nuevaPagina();
+      y = yInicio;
+    }
+    if (linea.texto === '') { y -= lineHeight * 0.6; continue; }
+    const f = linea.bold ? fontBold : font;
+    const maxWidth = W_pt - margenX * 2;
+    // Wrap manual
+    const palabras = linea.texto.split(' ');
+    let lineActual = '';
+    for (const palabra of palabras) {
+      const prueba = lineActual ? lineActual + ' ' + palabra : palabra;
+      const ancho = f.widthOfTextAtSize(prueba, linea.size);
+      if (ancho > maxWidth && lineActual) {
+        if (y < yFin) { page = await nuevaPagina(); y = yInicio; }
+        page.drawText(lineActual, { x: margenX, y, font: f, size: linea.size, color: rgb(0.1, 0.1, 0.1) });
+        y -= lineHeight;
+        lineActual = palabra;
+      } else {
+        lineActual = prueba;
+      }
+    }
+    if (lineActual) {
+      if (y < yFin) { page = await nuevaPagina(); y = yInicio; }
+      page.drawText(lineActual, { x: margenX, y, font: f, size: linea.size, color: rgb(0.1, 0.1, 0.1) });
+      y -= lineHeight;
+    }
+  }
+
+  // ── Firma ──
+  if (prof?.firmaUrl) {
+    try {
+      const firmaResp = await fetch(prof.firmaUrl);
+      const firmaBytes = await firmaResp.arrayBuffer();
+      const firmaImg = await pdfDoc.embedPng(firmaBytes);
+      const firmaAncho = 113; // 40mm en puntos (~2.83 pt/mm)
+      const firmaAlto = firmaAncho * (firmaImg.height / firmaImg.width);
+      const firmaX = (W_pt - firmaAncho) / 2;
+      const firmaY = yFin + 10;
+      page.drawImage(firmaImg, { x: firmaX, y: firmaY, width: firmaAncho, height: firmaAlto });
+      page.drawText(prof.nombre, { x: W_pt / 2, y: firmaY - 12, font, size: 8, color: rgb(0.3, 0.3, 0.3) });
+    } catch(e) { console.warn('Error cargando firma:', e); }
+  }
+
+  // ── Descargar ──
+  const pdfBytes = await pdfDoc.save();
+  const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `HC_${pac.codigo}_${ctrl.fechaControl||'control'}.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+
 function getControlesPendientes() {
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   const pendientes = [];
@@ -1184,6 +1343,7 @@ function renderDash() {
 
   const recordatorios = [];  // proxControl ≤7 días, sin turno
   const enVentana = [];      // proxControl vencido hace ≤30 días, sin control ni turno
+  const enEriList = [];      // último control con en_eri = true
   const conTurno = [];       // tienen turno asignado
   const vencidos = [];       // vencido hace >30 días, sin control
   const proximos = [];       // proxControl >7 días, sin turno
@@ -1203,6 +1363,11 @@ function renderDash() {
     const fechaCtrl = _parseFmt(c.fechaControl);
     fechaCtrl.setHours(0,0,0,0);
     if (fechaCtrl > hoy) return;
+
+    // Detectar ERI
+    if (c.enEri) {
+      enEriList.push({ paciente: pac, control: c, diasEnEri: -diasRestantes(c.fechaEri || c.fechaControl) });
+    }
 
     const dias = diasRestantes(c.proxControl);
     const riesgo = calcularRiesgo(c);
@@ -1241,7 +1406,37 @@ function renderDash() {
     </div>
   `;
 
-  // ===== SECCIÓN 1: Recordatorios esta semana =====
+  // ===== SECCIÓN ERI: Pacientes en ERI =====
+  if (enEriList.length > 0) {
+    html += `<div class="section-label" style="display:flex; align-items:center; gap:8px; color:var(--mr-coral-text);">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Pacientes en ERI — requieren recambio de dispositivo
+    </div>`;
+    enEriList.forEach(({paciente:pac, control:c, diasEnEri}) => {
+      const riesgo = calcularRiesgo(c);
+      const disp = dispositivos.find(d => d.id === c.dispositivoId);
+      const tipoDisp = disp ? (TIPOS[disp.tipo] || {nombre:disp.tipo||'?'}).nombre : '-';
+      html += `<div style="border:2px solid var(--mr-coral-text); border-radius:10px; padding:1rem; margin-bottom:10px; background:#fff8f8;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+          <strong style="font-size:14px;">${pac.nombre}</strong>
+          <span style="background:var(--mr-coral-text); color:#fff; font-size:11px; padding:2px 8px; border-radius:10px; font-weight:700;">EN ERI</span>
+          <span style="font-size:12px; color:var(--mr-text-muted);">· ${tipoDisp}</span>
+        </div>
+        <div style="font-size:12px; color:var(--mr-text-muted);">
+          En ERI desde: ${c.fechaEri ? fmtDate(c.fechaEri) : fmtDate(c.fechaControl)} · <strong>${diasEnEri} días</strong>
+        </div>
+        <div style="font-size:12px; color:var(--mr-text-muted);">DNI: ${pac.dni}</div>
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <button class="btn-wa" onclick="window.open('https://wa.me/549${(pac.tel||'').replace(/\D/g,'')}','_blank')" style="background:#25D366;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
+            WhatsApp
+          </button>
+        </div>
+      </div>`;
+    });
+  }
+
+// ===== SECCIÓN 1: Recordatorios esta semana =====
   html += `<div class="section-label" style="display:flex; align-items:center; gap:8px;">
     Recordatorios a enviar esta semana
     <span style="font-size:11px; color:var(--mr-text-muted); font-weight:400;">— control en ≤7 días, sin turno asignado</span>
@@ -1538,6 +1733,91 @@ function renderAgenda(profIdSeleccionado = null) {
 }
 
 
+
+// ===================== SUPABASE STORAGE =====================
+async function subirArchivoStorage(bucket, path, file) {
+  const url = `${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`;
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': file.type, 'x-upsert': 'true' },
+    body: file
+  });
+  if (!r.ok) { console.error('Storage error:', await r.text()); return null; }
+  return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
+}
+
+async function renderSeccionDocumentos() {
+  const cont = document.getElementById('cfg-documentos');
+  if (!cont) return;
+
+  cont.innerHTML = `
+    <div style="margin-bottom:1.5rem;">
+      <label style="font-size:13px; font-weight:600; display:block; margin-bottom:8px;">Hoja membretada</label>
+      <div style="font-size:12px; color:var(--mr-text-muted); margin-bottom:8px;">
+        ${MEMBRETE_URL ? `<span style="color:var(--mr-teal-text);">✓ Membrete cargado</span> · <a href="${MEMBRETE_URL}" target="_blank" style="color:var(--mr-primary);">Ver</a>` : 'Sin membrete cargado'}
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <input type="file" id="cfg-membrete-file" accept=".pdf" style="font-size:12px;">
+        <button id="cfg-membrete-subir" class="btn-primary" style="font-size:12px;">Subir membrete</button>
+      </div>
+      <div style="font-size:11px; color:var(--mr-text-muted); margin-top:4px;">Subí un archivo PDF de la hoja membretada (con encabezado y pie de página). El texto del resumen se superpone sobre cada página.</div>
+    </div>
+    <div>
+      <label style="font-size:13px; font-weight:600; display:block; margin-bottom:8px;">Firmas de profesionales</label>
+      ${profesionales.filter(p=>p.rol==='medico').map(p => `
+        <div style="display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--mr-border);">
+          <div style="flex:1;">
+            <div style="font-size:13px; font-weight:600;">${p.nombre}</div>
+            <div style="font-size:11px; color:var(--mr-text-muted);">${p.firmaUrl ? '✓ Firma cargada' : 'Sin firma'}</div>
+          </div>
+          ${p.firmaUrl ? `<img src="${p.firmaUrl}" style="height:40px; border:1px solid var(--mr-border); border-radius:4px; background:#f5f5f5;">` : ''}
+          <div style="display:flex; gap:6px; align-items:center;">
+            <input type="file" id="cfg-firma-${p.id}" accept=".png" style="font-size:11px; width:150px;">
+            <button class="btn-secondary cfg-firma-subir" data-prof="${p.id}" style="font-size:11px;">Subir firma</button>
+          </div>
+        </div>`).join('')}
+    </div>`;
+
+  // Listener membrete
+  document.getElementById('cfg-membrete-subir').addEventListener('click', async () => {
+    const file = document.getElementById('cfg-membrete-file').files[0];
+    if (!file) { alert('Seleccioná una imagen.'); return; }
+    const btn = document.getElementById('cfg-membrete-subir');
+    btn.disabled = true; btn.textContent = 'Subiendo...';
+    const url = await subirArchivoStorage('membrete', 'membrete.pdf', file);
+    if (url) {
+      MEMBRETE_URL = url;
+      await guardarConfig_('MEMBRETE_URL', url);
+      alert('Membrete subido correctamente.');
+      renderSeccionDocumentos();
+    } else {
+      alert('Error al subir el archivo.');
+    }
+    btn.disabled = false; btn.textContent = 'Subir membrete';
+  });
+
+  // Listeners firmas
+  cont.querySelectorAll('.cfg-firma-subir').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const profId = btn.dataset.prof;
+      const file = document.getElementById('cfg-firma-' + profId).files[0];
+      if (!file) { alert('Seleccioná una imagen PNG.'); return; }
+      btn.disabled = true; btn.textContent = 'Subiendo...';
+      const url = await subirArchivoStorage('firmas', `firma_${profId}.png`, file);
+      if (url) {
+        await sbUpdate('profesionales', 'id=eq.' + profId, { firma_url: url });
+        const prof = profesionales.find(p => p.id === profId);
+        if (prof) prof.firmaUrl = url;
+        alert('Firma subida correctamente.');
+        renderSeccionDocumentos();
+      } else {
+        alert('Error al subir la firma.');
+      }
+      btn.disabled = false; btn.textContent = 'Subir firma';
+    });
+  });
+}
+
 function renderAgendasProfesionales() {
   const cont = document.getElementById('cfg-agendas-prof');
   if (!cont) return;
@@ -1751,6 +2031,7 @@ function renderAgendaProfPanel(profId) {
     await guardarAgendaProf_(profId, ag);
     btn.disabled = false; btn.textContent = 'Guardar agenda';
     renderAgendasProfesionales();
+  renderSeccionDocumentos();
   });
 }
 
@@ -2246,6 +2527,16 @@ async function renderForm() {
         </div>
       </div>
       <div class="field">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px;">
+          <input type="checkbox" id="f-en-eri" style="width:16px; height:16px;">
+          <label for="f-en-eri" style="margin:0; font-size:13px; font-weight:600; color:var(--mr-coral-text);">Paciente en ERI</label>
+        </div>
+        <div id="f-fecha-eri-wrap" style="display:none; margin-bottom:8px;">
+          <label style="font-size:12px; color:var(--mr-text-muted);">Fecha de inicio de ERI</label>
+          <input type="date" id="f-fecha-eri" style="margin-top:4px; width:100%;">
+        </div>
+      </div>
+      <div class="field" id="f-bateria-field">
         <label>Vida restante de batería (hasta ERI)</label>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
           <input type="number" id="f-bateria-anios" min="0" step="0.1" placeholder="Años">
@@ -2312,6 +2603,30 @@ async function renderForm() {
     const total = Math.round((anios*12 + meses) * 10) / 10;
     preview.innerHTML = total ? `Total: <strong>${total} ${total===1?'mes':'meses'}</strong> hasta ERI` : '';
   }
+  // Listener ERI
+  const _eriCb = document.getElementById('f-en-eri');
+  const _eriWrap = document.getElementById('f-fecha-eri-wrap');
+  const _batField = document.getElementById('f-bateria-field');
+  const _fechaEri = document.getElementById('f-fecha-eri');
+
+  const toggleERI = () => {
+    const checked = _eriCb.checked;
+    _eriWrap.style.display = checked ? 'block' : 'none';
+    _batField.style.opacity = checked ? '0.4' : '1';
+    _batField.style.pointerEvents = checked ? 'none' : '';
+    if (checked && !_fechaEri.value) {
+      _fechaEri.value = document.getElementById('f-fechacontrol').value || toInputDate(new Date());
+    }
+  };
+  _eriCb.addEventListener('change', toggleERI);
+
+  // Pre-cargar en modo edición
+  if (modoEdicion) {
+    _eriCb.checked = !!editando.enEri;
+    if (editando.fechaEri) _fechaEri.value = editando.fechaEri;
+    toggleERI();
+  }
+
   document.getElementById('f-bateria-anios').addEventListener('input', updateVidaPreview);
   document.getElementById('f-bateria-meses').addEventListener('input', updateVidaPreview);
   if (modoEdicion) updateVidaPreview();
@@ -2513,6 +2828,8 @@ async function renderForm() {
       editando.bateriaMeses = document.getElementById('f-bateria-meses').value;
       editando.indicaciones = document.getElementById('f-indicaciones').value;
       editando.riesgoManual = document.getElementById('f-riesgo-manual').checked;
+      editando.enEri = document.getElementById('f-en-eri').checked;
+      editando.fechaEri = editando.enEri ? (document.getElementById('f-fecha-eri').value || editando.fechaControl) : null;
       editando.parametrosTecnicos = {...parametrosTecnicosTemp};
 
       // Recalcular fechaProgramada: proxControl del control anterior, o fechaControl si es el primero
@@ -2558,6 +2875,8 @@ async function renderForm() {
         fase: null,
         indicaciones: document.getElementById('f-indicaciones').value,
         riesgoManual: document.getElementById('f-riesgo-manual').checked,
+        enEri: document.getElementById('f-en-eri').checked,
+        fechaEri: document.getElementById('f-en-eri').checked ? (document.getElementById('f-fecha-eri').value || toInputDate(fechaControl)) : null,
         fechaCarga: new Date().toISOString()
       };
       const _rCtrl = await guardarNuevoControl_(nuevoControl);
@@ -3931,6 +4250,7 @@ function toggleControlesPaciente(id) {
           <div style="display:flex; gap:4px; margin-top:6px;">
             ${c.parametrosTecnicos && Object.values(c.parametrosTecnicos).some(v=>v) ? `<button class="btn-secondary" onclick="openModalVerParametrosPorId('${c.id}')" style="font-size:11px; padding:3px 8px;">Parámetros</button>` : ''}
             <button class="btn-secondary" onclick="openModalResumenControl('${c.id}')" style="font-size:11px; padding:3px 8px; display:flex; align-items:center; gap:4px;"><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>HC</button>
+            <button class="btn-secondary" onclick="generarPDFResumen('${c.id}')" style="font-size:11px; padding:3px 8px; display:flex; align-items:center; gap:4px;"><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>PDF</button>
             <button class="btn-secondary" onclick="openModalEditarControl('${c.id}', '${id}')" style="font-size:11px; padding:3px 8px; display:flex; align-items:center; gap:4px;"><svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>Editar</button>
           </div>
         </div>`;
@@ -4057,6 +4377,10 @@ function renderConfig() {
         <div style="padding:1rem; display:none;" id="cfg-agenda"></div>
       </div>
       <div style="border:0.5px solid var(--mr-border); border-radius:10px; overflow:hidden; margin-bottom:1rem;">
+        <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); font-weight:700; font-size:13px; color:var(--mr-primary);">Documentos (membrete y firmas)</div>
+        <div style="padding:1rem;" id="cfg-documentos"></div>
+      </div>
+      <div style="border:0.5px solid var(--mr-border); border-radius:10px; overflow:hidden; margin-bottom:1rem;">
         <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); font-weight:700; font-size:13px; color:var(--mr-primary);">Agendas por profesional</div>
         <div style="padding:1rem;" id="cfg-agendas-prof"></div>
       </div>
@@ -4085,6 +4409,7 @@ function renderConfig() {
   renderProfesionales('cfg-prof');
   renderAgendaConfig('cfg-agenda');
   renderAgendasProfesionales();
+  renderSeccionDocumentos();
   renderCfgInstitucion();
   renderCfgInvestigacion();
   renderMarcas();
@@ -5098,15 +5423,15 @@ function renderPacienteView() {
     </div>
 
     <div style="border:0.5px solid var(--mr-border); border-radius:10px; padding:1rem;">
-      <div style="font-size:13px; color:var(--mr-text-muted); margin-bottom:8px;">Historial de controles</div>
-      ${historial.length > 0 ? historial.map(c=>`
-        <div style="display:flex; justify-content:space-between; font-size:13px; padding:4px 0; border-bottom:0.5px solid var(--mr-border);">
-          <span>Control de dispositivo</span>
-          <span class="muted">${fmtDate(c.fechaControl)}</span>
-        </div>`).join('') : '<div style="font-size:13px; color:var(--mr-text-muted);">Sin controles registrados aún</div>'}
-    </div>
-  `;
+       <div style="font-size:13px; color:var(--mr-text-muted); margin-bottom:8px;">Historial de controles</div>
+       ${historial.length > 0 ? historial.map(c=>{ const esProsp = calcularFase(c)==='Prospectivo'; const btnPdf = esProsp ? '<button onclick="generarPDFResumen(\'' + c.id + '\')" style="font-size:11px;padding:3px 8px;border:1px solid var(--mr-border);border-radius:6px;background:var(--mr-bg);cursor:pointer;">&#11015; Descargar resumen</button>' : ''; return `
+         <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:4px 0; border-bottom:0.5px solid var(--mr-border);">
+           <span>Control de dispositivo · ${fmtDate(c.fechaControl)}</span>
+           ${btnPdf}
+         </div>`;}).join('') : '<div style="font-size:13px; color:var(--mr-text-muted);">Sin controles registrados aún</div>'}
+   `;
 
+  view.innerHTML = html;
   view.innerHTML = html;
   renderTurnoPaciente(controlActivo, pacienteActivo, estado).catch(e=>console.error('renderTurnoPaciente:',e));
 }
