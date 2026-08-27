@@ -5419,7 +5419,7 @@ function renderPacienteView() {
 
     <div style="border:0.5px solid var(--mr-border); border-radius:10px; padding:1rem;">
        <div style="font-size:13px; color:var(--mr-text-muted); margin-bottom:8px;">Historial de controles</div>
-       ${historial.length > 0 ? historial.map(c=>{ const esProsp = calcularFase(c)==='Prospectivo'; const btnPdf = esProsp ? '<button onclick="generarPDFResumen(\'' + c.id + '\')" style="font-size:11px;padding:3px 8px;border:1px solid var(--mr-border);border-radius:6px;background:var(--mr-bg);cursor:pointer;">&#11015; Descargar resumen</button>' : ''; return `
+       ${historial.length > 0 ? historial.map(c=>{ const esProsp = calcularFase(c)==='Prospectivo'; const btnPdf = ''; // PDF deshabilitado temporalmente return `
          <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:4px 0; border-bottom:0.5px solid var(--mr-border);">
            <span>Control de dispositivo · ${fmtDate(c.fechaControl)}</span>
            ${btnPdf}
