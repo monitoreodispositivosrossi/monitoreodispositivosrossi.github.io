@@ -1137,35 +1137,30 @@ async function generarPDFResumen(controlId) {
   const tipo = disp ? (TIPOS[disp.tipo] || {nombre: disp.tipo||'?'}).nombre : '-';
   const nombrePac = pac.nombre.split(', ').reverse().join(' ');
 
+  // Formato mes/año para próximo control
+  const fmtMesAnio = (fechaStr) => {
+    if (!fechaStr) return '-';
+    const [y,m] = fechaStr.split('-');
+    const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    return `${meses[parseInt(m)-1]} ${y}`;
+  };
+
+  // Usar generarTextoResumen como base del contenido
+  const textoResumen = generarTextoResumen(ctrl.id);
+
   const lineas = [];
-  lineas.push({ texto: `CONTROL DE DISPOSITIVO DE ESTIMULACIÓN CARDÍACA`, bold: true, size: 10 });
-  lineas.push({ texto: `${nombrePac.toUpperCase()} - GENERADO POR MODI ROSSI`, bold: true, size: 10 });
+  lineas.push({ texto: 'CONTROL DE DISPOSITIVO DE ESTIMULACIÓN CARDÍACA', bold: true, size: 10 });
   lineas.push({ texto: '', bold: false, size: 9 });
   lineas.push({ texto: `Fecha de control: ${fmtDateLong(ctrl.fechaControl)}`, bold: false, size: 9 });
-  lineas.push({ texto: `Próximo control: ${fmtDateLong(ctrl.proxControl)}`, bold: false, size: 9 });
+  lineas.push({ texto: `Próximo control: ${fmtMesAnio(ctrl.proxControl)}`, bold: false, size: 9 });
   if (prof) lineas.push({ texto: `Profesional: ${prof.nombre}`, bold: false, size: 9 });
   lineas.push({ texto: '', bold: false, size: 9 });
-  lineas.push({ texto: 'DATOS DEL PACIENTE', bold: true, size: 9 });
-  lineas.push({ texto: `Nombre: ${pac.nombre}`, bold: false, size: 9 });
-  lineas.push({ texto: `DNI: ${pac.dni}`, bold: false, size: 9 });
-  if (pac.fechaNacimiento) lineas.push({ texto: `Fecha de nacimiento: ${fmtDate(pac.fechaNacimiento)}`, bold: false, size: 9 });
-  lineas.push({ texto: '', bold: false, size: 9 });
-  lineas.push({ texto: 'DISPOSITIVO', bold: true, size: 9 });
-  lineas.push({ texto: `Tipo: ${tipo}`, bold: false, size: 9 });
-  if (disp?.marca) lineas.push({ texto: `Marca: ${disp.marca}`, bold: false, size: 9 });
-  if (disp?.modelo) lineas.push({ texto: `Modelo: ${disp.modelo}`, bold: false, size: 9 });
-  if (disp?.fechaImplante) lineas.push({ texto: `Fecha de implante: ${fmtDate(disp.fechaImplante)}`, bold: false, size: 9 });
-  if (ctrl.bateriaAnios || ctrl.bateriaMeses) {
-    lineas.push({ texto: '', bold: false, size: 9 });
-    lineas.push({ texto: 'BATERÍA', bold: true, size: 9 });
-    lineas.push({ texto: `Vida restante: ${fmtVidaBateria(ctrl)}`, bold: false, size: 9 });
-    if (ctrl.eriProximo === 'Sí') lineas.push({ texto: 'ERI próximo: Sí', bold: false, size: 9 });
-  }
-  if (ctrl.indicaciones) {
-    lineas.push({ texto: '', bold: false, size: 9 });
-    lineas.push({ texto: 'INDICACIONES', bold: true, size: 9 });
-    ctrl.indicaciones.split('\n').forEach(l => lineas.push({ texto: l, bold: false, size: 9 }));
-  }
+
+  // Agregar el texto completo del resumen de HC
+  textoResumen.split('\n').forEach(l => {
+    const esTitulo = l === l.toUpperCase() && l.trim().length > 3 && !l.includes(':');
+    lineas.push({ texto: l, bold: esTitulo, size: 9 });
+  });
 
   // ── Renderizar páginas ──
   const W_pt = 595, H_pt = 842; // A4 en puntos
