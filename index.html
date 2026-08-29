@@ -4895,11 +4895,11 @@ function calcularIndicadores() {
   const result = {};
 
   fases.forEach(fase => {
-    // Solo controles aptos para análisis
-    const realizados = datos.filter(d => d.tipoRegistro === 'Realizado' && d.fase === fase && d.aptoAnalisis === 'Sí');
+    // Usar faseRetraso (basada en fechaProgramada) para clasificar adherencia y retraso
+    const realizados = datos.filter(d => d.tipoRegistro === 'Realizado' && d.faseRetraso === fase && d.aptoAnalisis === 'Sí');
     // Pendientes aptos con proxControl vencido > 30 días
     const pendientesVencidos = datos.filter(d =>
-      d.tipoRegistro === 'Pendiente' && d.fase === fase &&
+      d.tipoRegistro === 'Pendiente' && d.faseRetraso === fase &&
       d.aptoAnalisis === 'Sí' &&
       d.retrasoDias !== null && d.retrasoDias > 30
     );
