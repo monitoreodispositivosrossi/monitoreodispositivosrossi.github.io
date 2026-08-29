@@ -4912,10 +4912,14 @@ function calcularIndicadores() {
     const pctAdherencia = totalAdherencia > 0 ? (adherentes / totalAdherencia * 100).toFixed(1) : '-';
 
     // ── Retraso (solo controles realizados con retrasoAjustado > 0) ──
-    // Retraso: realizados con retraso > 0, y pendientes con retraso entre 31 y 180 días
+    // Retraso: usar faseRetraso (basada en fechaProgramada) para clasificar correctamente
+    // El primer control prospectivo con fechaProgramada retrospectiva no entra en el prospectivo
     const conRetraso = [
-      ...realizados.filter(d => d.retrasoAjustado !== null && d.retrasoAjustado !== '-' && Number(d.retrasoAjustado) > 0),
-      ...pendientesVencidos.filter(d => d.retrasoAjustado !== null && d.retrasoAjustado !== '-' && Number(d.retrasoAjustado) > 0 && Number(d.retrasoAjustado) <= 180)
+      ...datos.filter(d => d.tipoRegistro === 'Realizado' && d.faseRetraso === fase && d.aptoAnalisis === 'Sí'
+        && d.retrasoAjustado !== null && d.retrasoAjustado !== '-' && Number(d.retrasoAjustado) > 0),
+      ...datos.filter(d => d.tipoRegistro === 'Pendiente' && d.faseRetraso === fase && d.aptoAnalisis === 'Sí'
+        && d.retrasoAjustado !== null && d.retrasoAjustado !== '-'
+        && Number(d.retrasoAjustado) > 0 && Number(d.retrasoAjustado) <= 180)
     ].map(d => Number(d.retrasoAjustado));
 
     let promedio = '-', mediana = '-';
@@ -5135,6 +5139,7 @@ function getDatosInvestigacion() {
       edad: calcularEdad(pac.fechaNacimiento) ?? '-',
       tipoDispositivo: tipo?.nombre || '-',
       fase: calcularFase(c),
+      faseRetraso: c.fechaProgramada < FECHA_IMPLEMENTACION_STR ? 'Retrospectivo' : 'Prospectivo',
       fechaProgramada: c.fechaProgramada,
       fechaRealizada: c.fechaControl,
       retrasoDias,
