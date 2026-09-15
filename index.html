@@ -435,7 +435,11 @@ function mapPac(p) {
     tel: String(p.tel||''), codigo: String(p.codigo||''), sexo: String(p.sexo||''),
     fechaNacimiento: parseFechaSB(p.fecha_nacimiento),
     consentimiento: p.consentimiento === true || p.consentimiento === 'true',
-    estado: String(p.estado||'Activo')
+    consentimiento: p.consentimiento === true || p.consentimiento === 'true',
+    estado: String(p.estado||'Activo'),
+    motivoBaja: p.motivo_baja || null,
+    fechaBaja:  p.fecha_baja  || null,
+    obsBaja:    p.obs_baja    || null
   };
 }
 function mapDisp(d) {
@@ -1097,6 +1101,73 @@ function datosIncompletos(c) {
 }
 
 /* ===================== CONTROLES PENDIENTES (no realizados) ===================== */
+
+
+// ===================== BAJA / SITUACIÓN DE PACIENTE =====================
+const MOTIVOS_BAJA = [
+  { value: 'fallecido',           label: 'Fallecido/a' },
+  { value: 'no_localizable',      label: 'No localizable' },
+  { value: 'rechazo_seguimiento', label: 'Rechazó el seguimiento' },
+  { value: 'trasladado',          label: 'Trasladado a otro centro' },
+  { value: 'otro',                label: 'Otro' }
+];
+
+async function registrarSituacionPaciente(pacienteId, motivo, fecha, obs) {
+  const estadoNuevo = motivo === 'fallecido' ? 'Fallecido' : motivo === 'trasladado' ? 'Trasladado' : 'Inactivo';
+  await sbUpdate('pacientes', 'id=eq.' + pacienteId, {
+    motivo_baja: motivo,
+    fecha_baja: fecha || null,
+    obs_baja: obs || null,
+    estado: estadoNuevo
+  });
+  const pac = pacientes.find(p => p.id === pacienteId);
+  if (pac) {
+    pac.motivoBaja = motivo;
+    pac.fechaBaja  = fecha || null;
+    pac.obsBaja    = obs || null;
+    pac.estado     = estadoNuevo;
+  }
+}
+
+function openModalSituacion(pacienteId) {
+  const pac = pacientes.find(p => p.id === pacienteId);
+  if (!pac) return;
+  const overlay = document.getElementById('modal-overlay');
+  const content = document.getElementById('modal-content');
+  overlay.classList.add('show');
+  content.style.maxWidth = '420px';
+  content.innerHTML = `
+    <h3>Registrar situación — ${pac.nombre}</h3>
+    <div class="field">
+      <label>Motivo</label>
+      <select id="sit-motivo" style="width:100%;">
+        ${MOTIVOS_BAJA.map(m => `<option value="${m.value}" ${pac.motivoBaja===m.value?'selected':''}>${m.label}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field">
+      <label>Fecha (opcional)</label>
+      <input type="date" id="sit-fecha" value="${pac.fechaBaja||''}" style="width:100%;">
+    </div>
+    <div class="field">
+      <label>Observaciones (opcional)</label>
+      <textarea id="sit-obs" rows="3" style="width:100%; resize:vertical;">${pac.obsBaja||''}</textarea>
+    </div>
+    <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:1rem;">
+      <button class="btn-secondary" onclick="document.getElementById('modal-overlay').classList.remove('show')">Cancelar</button>
+      <button class="btn-primary" id="sit-guardar">Guardar situación</button>
+    </div>`;
+
+  document.getElementById('sit-guardar').addEventListener('click', async () => {
+    const btn = document.getElementById('sit-guardar');
+    btn.disabled = true; btn.textContent = 'Guardando...';
+    const motivo = document.getElementById('sit-motivo').value;
+    const fecha  = document.getElementById('sit-fecha').value;
+    const obs    = document.getElementById('sit-obs').value.trim();
+    await registrarSituacionPaciente(pacienteId, motivo, fecha, obs);
+    overlay.classList.remove('show');
+    renderDash();
+  });
+}
 
 // ===================== GENERACIÓN DE PDF HC =====================
 async function generarPDFResumen(controlId) {
@@ -4935,13 +5006,20 @@ function calcularIndicadores() {
     result[fase] = { totalAdherencia, adherentes, pctAdherencia, conRetraso: conRetraso.length, promedio, mediana };
   });
 
-  // ── Recuperación del seguimiento (solo pacientes aptos para análisis) ──
-  const recuperacion = getRecuperacionSeguimiento().filter(r => r.paciente && r.paciente.consentimiento === true && r.paciente.estado === 'Activo');
+  // ── Recuperación del seguimiento ──
+  // Incluir todos los pacientes con seguimiento perdido, independientemente del estado actual
+  const recuperacion = getRecuperacionSeguimiento();
   const totalPerdidos = recuperacion.length;
-  const recuperados = recuperacion.filter(r => r.recuperado).length;
+  const recuperados     = recuperacion.filter(r => r.recuperado).length;
+  const fallecidos      = recuperacion.filter(r => !r.recuperado && r.paciente.motivoBaja === 'fallecido').length;
+  const noLocalizables  = recuperacion.filter(r => !r.recuperado && r.paciente.motivoBaja === 'no_localizable').length;
+  const rechazaron      = recuperacion.filter(r => !r.recuperado && r.paciente.motivoBaja === 'rechazo_seguimiento').length;
+  const trasladados     = recuperacion.filter(r => !r.recuperado && r.paciente.motivoBaja === 'trasladado').length;
+  const otroMotivo      = recuperacion.filter(r => !r.recuperado && r.paciente.motivoBaja === 'otro').length;
+  const sinGestionar    = recuperacion.filter(r => !r.recuperado && !r.paciente.motivoBaja).length;
   const pctRecuperacion = totalPerdidos > 0 ? (recuperados / totalPerdidos * 100).toFixed(1) : '-';
 
-  return { fases: result, recuperacion: { totalPerdidos, recuperados, pctRecuperacion } };
+  return { fases: result, recuperacion: { totalPerdidos, recuperados, fallecidos, noLocalizables, rechazaron, trasladados, otroMotivo, sinGestionar, pctRecuperacion } };
 }
 
 
@@ -5021,11 +5099,20 @@ function renderIndicadores() {
     <!-- Recuperación -->
     <div style="background:var(--mr-bg); border-radius:10px; padding:1rem; border:1px solid var(--mr-border);">
       <div style="font-weight:700; font-size:13px; margin-bottom:0.75rem; color:var(--mr-navy);">Recuperación del seguimiento</div>
-      <div style="display:flex; gap:2rem; font-size:12px; align-items:center;">
-        <div><span style="color:var(--mr-text-muted);">Pacientes con seg. perdido (pre):</span> <strong>${rec.totalPerdidos}</strong></div>
-        <div><span style="color:var(--mr-text-muted);">Recuperados:</span> <strong>${rec.recuperados}</strong></div>
-        <div style="font-size:16px; font-weight:700; color:var(--mr-navy);">${rec.pctRecuperacion}%</div>
+      <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; font-size:12px;">
+        <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-navy);">${rec.totalPerdidos}</div><div style="color:var(--mr-text-muted);">Total</div></div>
+        <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-teal-text);">${rec.recuperados}</div><div style="color:var(--mr-text-muted);">Recuperados</div></div>
+        <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-text-muted);">${rec.sinGestionar}</div><div style="color:var(--mr-text-muted);">Sin gestionar</div></div>
+        <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-navy);">${rec.pctRecuperacion}%</div><div style="color:var(--mr-text-muted);">% Recuperación</div></div>
       </div>
+      ${(rec.fallecidos+rec.noLocalizables+rec.rechazaron+rec.trasladados+rec.otroMotivo)>0 ? `
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; font-size:11px;">
+        ${rec.fallecidos>0?`<span style="background:var(--mr-text-muted);color:#fff;padding:2px 8px;border-radius:10px;">Fallecidos: ${rec.fallecidos}</span>`:''}
+        ${rec.noLocalizables>0?`<span style="background:var(--mr-amber-bg);color:var(--mr-amber-text);padding:2px 8px;border-radius:10px;">No localizables: ${rec.noLocalizables}</span>`:''}
+        ${rec.rechazaron>0?`<span style="background:var(--mr-coral-bg);color:var(--mr-coral-text);padding:2px 8px;border-radius:10px;">Rechazaron: ${rec.rechazaron}</span>`:''}
+        ${rec.trasladados>0?`<span style="background:#E6F1FB;color:#0C447C;padding:2px 8px;border-radius:10px;">Trasladados: ${rec.trasladados}</span>`:''}
+        ${rec.otroMotivo>0?`<span style="background:var(--mr-bg);color:var(--mr-text-muted);padding:2px 8px;border-radius:10px;border:1px solid var(--mr-border);">Otro: ${rec.otroMotivo}</span>`:''}
+      </div>` : ''}
     </div>
   `;
 }
@@ -5075,13 +5162,14 @@ function renderInvestigacion() {
     <div style="overflow-x:auto;">
       <table style="min-width:480px;">
         <thead>
-          <tr>
-            <th style="width:25%;">Código</th>
-            <th style="width:25%;">Sexo / Edad</th>
-            <th style="width:25%;">Tuvo control prospectivo</th>
-            <th style="width:25%;">Recuperado</th>
-          </tr>
-        </thead>
+           <tr>
+             <th>Código</th>
+             <th>Nombre</th>
+             <th>Sexo / Edad</th>
+             <th>Control prospectivo</th>
+             <th>Situación</th>
+             <th></th>
+           </tr>
         <tbody id="tabla-recuperacion"></tbody>
       </table>
     </div>
@@ -5102,12 +5190,19 @@ function renderTablaRecuperacion() {
 
   let html = '';
   datos.forEach(d => {
+    const motivoBaja = d.paciente.motivoBaja;
+    const labelMotivo = motivoBaja ? (MOTIVOS_BAJA.find(m=>m.value===motivoBaja)?.label || motivoBaja) : null;
+    const estadoLabel = d.recuperado ? 'Recuperado' : d.enSeguimientoEsperado ? 'En seguimiento' : motivoBaja ? labelMotivo : 'Sin gestionar';
+    const estadoColor = d.recuperado ? 'risk-bajo' : motivoBaja ? '' : d.enSeguimientoEsperado ? '' : 'risk-alto';
+    const estadoStyle = d.recuperado ? '' : motivoBaja ? 'background:var(--mr-text-muted);color:#fff;' : d.enSeguimientoEsperado ? 'background:var(--mr-amber-bg);color:var(--mr-amber-text);' : '';
     html += `
       <tr>
         <td style="font-weight:700;">${d.paciente.codigo}</td>
+        <td>${d.paciente.nombre}</td>
         <td>${d.paciente.sexo||'-'} / ${calcularEdad(d.paciente.fechaNacimiento) ?? '-'}</td>
         <td>${d.tieneControlPost ? 'Sí' : 'No'}</td>
-        <td><span class="risk-badge ${d.recuperado ? 'risk-bajo' : d.enSeguimientoEsperado ? '' : 'risk-alto'}" style="${d.enSeguimientoEsperado && !d.recuperado ? 'background:var(--mr-amber-bg);color:var(--mr-amber-text);' : ''}">${d.recuperado ? 'Recuperado' : d.enSeguimientoEsperado ? 'En seguimiento' : 'No recuperado'}</span></td>
+        <td><span class="risk-badge ${estadoColor}" style="${estadoStyle}">${estadoLabel}</span></td>
+        <td>${!d.recuperado && !motivoBaja ? `<button class="btn-secondary" onclick="openModalSituacion('${d.paciente.id}')" style="font-size:11px; padding:3px 8px;">Registrar situación</button>` : motivoBaja ? `<span style="font-size:11px; color:var(--mr-text-muted);">${d.paciente.fechaBaja ? fmtDate(d.paciente.fechaBaja) : ''}</span>` : ''}</td>
       </tr>
     `;
   });
