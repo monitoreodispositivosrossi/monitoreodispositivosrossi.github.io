@@ -1112,8 +1112,25 @@ const MOTIVOS_BAJA = [
   { value: 'otro',                label: 'Otro' }
 ];
 
+async function revertirSituacion(pacienteId) {
+  if (!confirm('¿Revertir la situación del paciente a Activo?')) return;
+  await sbUpdate('pacientes', 'id=eq.' + pacienteId, {
+    motivo_baja: null, fecha_baja: null, obs_baja: null, estado: 'Activo'
+  });
+  const pac = pacientes.find(p => p.id === pacienteId);
+  if (pac) { pac.motivoBaja = null; pac.fechaBaja = null; pac.obsBaja = null; pac.estado = 'Activo'; }
+  // Reabrir el modal de editar paciente actualizado
+  openModalEditarPaciente(pacienteId);
+}
+
 async function registrarSituacionPaciente(pacienteId, motivo, fecha, obs) {
-  const estadoNuevo = motivo === 'fallecido' ? 'Fallecido' : motivo === 'trasladado' ? 'Trasladado' : 'Inactivo';
+  const estadoNuevo = {
+    fallecido: 'Fallecido',
+    trasladado: 'Trasladado',
+    no_localizable: 'No localizable',
+    rechazo_seguimiento: 'Rechazó seguimiento',
+    otro: 'Otro'
+  }[motivo] || 'Activo';
   await sbUpdate('pacientes', 'id=eq.' + pacienteId, {
     motivo_baja: motivo,
     fecha_baja: fecha || null,
@@ -1129,7 +1146,7 @@ async function registrarSituacionPaciente(pacienteId, motivo, fecha, obs) {
   }
 }
 
-function openModalSituacion(pacienteId) {
+function openModalSituacion(pacienteId, desdeFicha = false) {
   const pac = pacientes.find(p => p.id === pacienteId);
   if (!pac) return;
   const overlay = document.getElementById('modal-overlay');
@@ -1165,7 +1182,7 @@ function openModalSituacion(pacienteId) {
     const obs    = document.getElementById('sit-obs').value.trim();
     await registrarSituacionPaciente(pacienteId, motivo, fecha, obs);
     overlay.classList.remove('show');
-    renderDash();
+    if (desdeFicha) { openModalEditarPaciente(pacienteId); } else { renderDash(); }
   });
 }
 
@@ -1648,7 +1665,7 @@ function alertaHTML(a, cls) {
         <a href="${waLink(a.paciente, a.control.proxControl)}" target="_blank" class="wa-btn btn-accion" data-control="${a.control.id}" data-tipo="Recordatorio WhatsApp"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-3px; margin-right:4px;"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>WhatsApp</a>
         <button class="btn-primary btn-accion" data-control="${a.control.id}" data-tipo="Llamado telefónico con priorización de turno" style="font-size:12px; padding:6px 12px;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px; margin-right:4px;"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.4 2 2 0 0 1 3.6 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.8a16 16 0 0 0 6.29 6.29l.98-.98a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Registrar llamado</button>
         ` : ''}
-        ${!a.paciente.motivoBaja ? `<button class="btn-secondary" onclick="openModalSituacion('${a.paciente.id}')" style="font-size:12px; padding:4px 10px;">Registrar situación</button>` : ''}
+        ${!a.paciente.motivoBaja ? `<button class="btn-secondary" onclick="openModalSituacion('${a.paciente.id}')" style="font-size:12px; padding:4px 10px;">Registrar situación de baja</button>` : ''}
       </div>
     </div>
   `;
@@ -3125,13 +3142,8 @@ function openModalPaciente(onSaved) {
       </div>
       <div class="field"><label>Teléfono (con código de país, sin signos)</label><input type="text" id="mp-tel" placeholder="ej. 5492215551234"></div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-        <div class="field">
-          <label>Estado de seguimiento</label>
-          <select id="mp-estado">
-            <option value="Activo">Activo</option>
-            <option value="Fallecido">Fallecido</option>
-            <option value="Trasladado">Trasladado / fuera del sistema</option>
-          </select>
+        <div class="field" style="display:none;">
+          <input type="hidden" id="mp-estado" value="Activo">
         </div>
         <div class="field" style="display:flex; align-items:center; gap:8px; margin-top:22px;">
           <input type="checkbox" id="mp-consentimiento" checked style="width:auto; margin:0;">
@@ -4047,12 +4059,23 @@ function openModalEditarPaciente(pacienteId) {
     <div class="field"><label>Teléfono (con código de país, sin signos)</label><input type="text" id="ep-tel" value="${p.tel||''}"></div>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
       <div class="field">
-        <label>Estado de seguimiento</label>
-        <select id="ep-estado">
-          <option value="Activo" ${p.estado==='Activo'?'selected':''}>Activo</option>
-          <option value="Fallecido" ${p.estado==='Fallecido'?'selected':''}>Fallecido</option>
-          <option value="Trasladado" ${p.estado==='Trasladado'?'selected':''}>Trasladado / fuera del sistema</option>
-        </select>
+        <input type="hidden" id="ep-estado" value="${p.estado||'Activo'}">
+        <label>Situación del paciente</label>
+        ${p.motivoBaja ? `
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span style="background:var(--mr-text-muted);color:#fff;font-size:12px;padding:3px 10px;border-radius:10px;">
+              ${(MOTIVOS_BAJA.find(m=>m.value===p.motivoBaja)?.label)||p.motivoBaja}
+              ${p.fechaBaja ? ' · ' + fmtDate(p.fechaBaja) : ''}
+            </span>
+            <button type="button" onclick="openModalSituacion('${p.id}', true)" style="font-size:12px;padding:3px 10px;border:1px solid var(--mr-border);border-radius:6px;background:var(--mr-bg);cursor:pointer;">Editar</button>
+            <button type="button" onclick="revertirSituacion('${p.id}')" style="font-size:12px;padding:3px 10px;border:1px solid var(--mr-teal-text);border-radius:6px;background:var(--mr-teal-bg);color:var(--mr-teal-text);cursor:pointer;">Revertir a Activo</button>
+          </div>
+        ` : `
+          <div>
+            <span style="font-size:12px;color:var(--mr-text-muted);">Activo</span>
+            <button type="button" onclick="openModalSituacion('${p.id}', true)" style="margin-left:12px;font-size:12px;padding:3px 10px;border:1px solid var(--mr-border);border-radius:6px;background:var(--mr-bg);cursor:pointer;">Registrar situación de baja</button>
+          </div>
+        `}
       </div>
       <div class="field" style="display:flex; align-items:center; gap:8px; margin-top:22px;">
         <input type="checkbox" id="ep-consentimiento" ${p.consentimiento?'checked':''} style="width:auto; margin:0;">
