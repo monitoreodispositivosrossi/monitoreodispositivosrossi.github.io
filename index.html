@@ -518,7 +518,7 @@ async function cargarDataset() {
     sbGet('turnos_reservados'), sbGet('acciones_contacto'), sbGet('config_general'), sbGet('contadores'), sbGet('agenda_profesional'), sbGet('hospitales')
   ]);
   profesionales = (pr||[]).map(p => ({ id:String(p.id||''), nombre:String(p.nombre||''), dni:String(p.dni||''), rol:String(p.rol||'medico'), firmaUrl:String(p.firma_url||'') }));
-  hospitales_lista = (hosp||[]).map(h => ({ id:String(h.id||''), nombre:String(h.nombre||''), codigo:String(h.codigo||'') }));
+  hospitales_lista = (hosp||[]).map(h => ({ id:String(h.id||''), nombre:String(h.nombre||''), codigo:String(h.codigo||''), ciudad:String(h.ciudad||''), servicio:String(h.servicio||'') }));
   // Si hay un solo hospital, setearlo directamente (caso HIGA Fase 1)
   if (!hospitalActual && hospitales_lista.length === 1) {
     hospitalActual = hospitales_lista[0];
@@ -917,12 +917,13 @@ const DIAS_SEMANA_CORTOS = ['dom','lun','mar','mié','jue','vie','sáb'];
 function actualizarTextoInstitucional() {
   // Si hay hospital activo (multi-hospital), mostrar su nombre en el header
   const nombreInstitucion = hospitalActual ? hospitalActual.nombre : CONFIG_INSTITUCION.institucion;
+  const nombreServicio = (hospitalActual?.servicio) || CONFIG_INSTITUCION.servicio;
   const ids = {
-    'hdr-servicio': `Monitoreo de Dispositivos · ${CONFIG_INSTITUCION.servicio}`,
+    'hdr-servicio': `Monitoreo de Dispositivos · ${nombreServicio}`,
     'hdr-institucion': nombreInstitucion,
-    'login-servicio': `Monitoreo de Dispositivos · ${CONFIG_INSTITUCION.servicio}`,
+    'login-servicio': `Monitoreo de Dispositivos · ${nombreServicio}`,
     'login-institucion': CONFIG_INSTITUCION.institucion,
-    'loginpac-servicio': `Monitoreo de Dispositivos · ${CONFIG_INSTITUCION.servicio}`,
+    'loginpac-servicio': `Monitoreo de Dispositivos · ${nombreServicio}`,
     'loginpac-institucion': CONFIG_INSTITUCION.institucion,
   };
   Object.entries(ids).forEach(([id, text]) => {
@@ -4609,24 +4610,10 @@ async function renderHospitales() {
   cont.innerHTML = '<p style="font-size:13px; color:var(--mr-text-muted);">Cargando...</p>';
 
   // Recargar desde Supabase para tener datos frescos
-  let rawText = '';
-  let fetchStatus = '';
   try {
-    const url = `${SUPABASE_URL}/rest/v1/hospitales?select=*`;
-    const r = await fetch(url, { headers: _h() });
-    fetchStatus = r.status;
-    rawText = await r.text();
-    if (r.ok) {
-      const rows = JSON.parse(rawText);
-      hospitales_lista = (rows||[]).map(h => ({ id:String(h.id||''), nombre:String(h.nombre||''), codigo:String(h.codigo||''), ciudad:String(h.ciudad||'') }));
-    } else {
-      cont.innerHTML = `<div style="background:#fff3f3;border:1px solid #f44;border-radius:8px;padding:10px;font-size:12px;"><strong>Error ${fetchStatus}:</strong><br><pre style="margin:4px 0;white-space:pre-wrap;">${rawText}</pre></div><button class="btn-primary" style="font-size:13px;margin-top:8px;" onclick="nuevoHospital()">+ Nuevo hospital</button>`;
-      return;
-    }
-  } catch(e) {
-    cont.innerHTML = `<div style="background:#fff3f3;border:1px solid #f44;border-radius:8px;padding:10px;font-size:12px;"><strong>Error de red:</strong> ${e.message}</div>`;
-    return;
-  }
+    const rows = await sbGet('hospitales');
+    hospitales_lista = (rows||[]).map(h => ({ id:String(h.id||''), nombre:String(h.nombre||''), codigo:String(h.codigo||''), ciudad:String(h.ciudad||''), servicio:String(h.servicio||'') }));
+  } catch(e) { console.error('Error cargando hospitales:', e); }
 
   const filas = hospitales_lista.map(h => {
     const extra = h.ciudad ? `<span style="font-size:11px; color:var(--mr-text-muted); margin-left:8px;">${h.ciudad}</span>` : '';
@@ -4641,23 +4628,32 @@ async function renderHospitales() {
   }).join('');
   cont.innerHTML = (filas
     ? `<div style="margin-bottom:1rem;">${filas}</div>`
-    : `<p style="font-size:13px; color:var(--mr-text-muted); margin-bottom:1rem;">No hay hospitales registrados. (Respuesta: ${rawText})</p>`)
+    : `<p style="font-size:13px; color:var(--mr-text-muted); margin-bottom:1rem;">No hay hospitales registrados.</p>`)
     + `<button class="btn-primary" style="font-size:13px;" onclick="nuevoHospital()">+ Nuevo hospital</button>`;
 }
 
 function nuevoHospital() {
   const modal = document.getElementById('modal-hospital');
-  if (modal) { document.getElementById('mhosp-id').value = ''; document.getElementById('mhosp-nombre').value = ''; document.getElementById('mhosp-codigo').value = ''; document.getElementById('mhosp-title').textContent = 'Nuevo hospital'; modal.style.display = 'flex'; return; }
+  if (modal) {
+    document.getElementById('mhosp-id').value = '';
+    document.getElementById('mhosp-nombre').value = '';
+    document.getElementById('mhosp-servicio').value = '';
+    document.getElementById('mhosp-ciudad').value = '';
+    document.getElementById('mhosp-title').textContent = 'Nuevo hospital';
+    modal.style.display = 'flex';
+    return;
+  }
   // Crear modal si no existe
   const div = document.createElement('div');
   div.id = 'modal-hospital';
   div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:1000;';
   div.innerHTML = `
-    <div style="background:#fff;border-radius:12px;padding:1.5rem;width:100%;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
+    <div style="background:#fff;border-radius:12px;padding:1.5rem;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
       <h4 id="mhosp-title" style="margin:0 0 1rem;">Nuevo hospital</h4>
       <input type="hidden" id="mhosp-id">
       <div class="field"><label>Nombre de la institución</label><input type="text" id="mhosp-nombre" placeholder="Ej: Hospital Italiano"></div>
-      <div class="field"><label>Código (opcional)</label><input type="text" id="mhosp-codigo" placeholder="Ej: HI"></div>
+      <div class="field"><label>Nombre del servicio</label><input type="text" id="mhosp-servicio" placeholder="Ej: Servicio de Cardiología"></div>
+      <div class="field"><label>Ciudad</label><input type="text" id="mhosp-ciudad" placeholder="Ej: La Plata"></div>
       <div id="mhosp-msg" class="msg err" style="display:none;margin-bottom:0.5rem;"></div>
       <div style="display:flex;gap:8px;margin-top:1rem;">
         <button class="btn-primary" style="flex:1;" onclick="guardarHospital()">Guardar</button>
@@ -4674,7 +4670,8 @@ function editarHospital(id) {
   setTimeout(() => {
     document.getElementById('mhosp-id').value = h.id;
     document.getElementById('mhosp-nombre').value = h.nombre;
-    document.getElementById('mhosp-codigo').value = h.codigo || '';
+    document.getElementById('mhosp-servicio').value = h.servicio || '';
+    document.getElementById('mhosp-ciudad').value = h.ciudad || '';
     document.getElementById('mhosp-title').textContent = 'Editar hospital';
   }, 50);
 }
@@ -4682,21 +4679,22 @@ function editarHospital(id) {
 async function guardarHospital() {
   const id = document.getElementById('mhosp-id').value.trim();
   const nombre = document.getElementById('mhosp-nombre').value.trim();
-  const codigo = document.getElementById('mhosp-codigo').value.trim();
+  const servicio = document.getElementById('mhosp-servicio').value.trim();
+  const ciudad = document.getElementById('mhosp-ciudad').value.trim();
   const msg = document.getElementById('mhosp-msg');
   if (!nombre) { msg.textContent = 'El nombre es obligatorio.'; msg.style.display = 'block'; return; }
   msg.style.display = 'none';
   if (id) {
     // Editar existente
-    await sbUpdate('hospitales', 'id=eq.'+id, { nombre, codigo: codigo || null });
+    await sbUpdate('hospitales', 'id=eq.'+id, { nombre, servicio: servicio || null, ciudad: ciudad || null });
     const h = hospitales_lista.find(x => x.id === id);
-    if (h) { h.nombre = nombre; h.codigo = codigo; }
-    if (hospitalActual?.id === id) { hospitalActual.nombre = nombre; hospitalActual.codigo = codigo; actualizarTextoInstitucional(); }
+    if (h) { h.nombre = nombre; h.servicio = servicio; h.ciudad = ciudad; }
+    if (hospitalActual?.id === id) { hospitalActual.nombre = nombre; hospitalActual.servicio = servicio; hospitalActual.ciudad = ciudad; actualizarTextoInstitucional(); }
   } else {
     // Nuevo hospital: usar UUID simple basado en timestamp
     const newId = 'H' + Date.now();
-    await sbInsert('hospitales', { id: newId, nombre, codigo: codigo || null });
-    hospitales_lista.push({ id: newId, nombre, codigo });
+    await sbInsert('hospitales', { id: newId, nombre, servicio: servicio || null, ciudad: ciudad || null });
+    hospitales_lista.push({ id: newId, nombre, servicio, ciudad });
   }
   document.getElementById('modal-hospital').style.display = 'none';
   renderHospitales();
@@ -4705,30 +4703,10 @@ async function guardarHospital() {
 }
 
 function renderCfgInstitucion() {
-  const container = document.getElementById('cfg-institucion');
-  container.innerHTML = `
-    <div class="field">
-      <label>Nombre del servicio</label>
-      <input type="text" id="cfg-inst-servicio" value="${CONFIG_INSTITUCION.servicio}">
-    </div>
-    <div class="field">
-      <label>Institución</label>
-      <input type="text" id="cfg-inst-institucion" value="${CONFIG_INSTITUCION.institucion}">
-    </div>
-    <div style="display:flex; gap:8px; align-items:center;">
-      <button id="cfg-inst-guardar" class="btn-primary" style="font-size:13px;">Guardar</button>
-      <span id="cfg-inst-ok" style="font-size:12px; color:var(--mr-teal); display:none;">✓ Guardado</span>
-    </div>
-  `;
-  document.getElementById('cfg-inst-guardar').addEventListener('click', () => {
-    CONFIG_INSTITUCION.servicio = document.getElementById('cfg-inst-servicio').value.trim() || CONFIG_INSTITUCION.servicio;
-    CONFIG_INSTITUCION.institucion = document.getElementById('cfg-inst-institucion').value.trim() || CONFIG_INSTITUCION.institucion;
-    actualizarTextoInstitucional();
-    guardarConfig_('CONFIG_INSTITUCION', CONFIG_INSTITUCION).catch(e=>console.error('cfg CONFIG_INSTITUCION:',e));
-    const ok = document.getElementById('cfg-inst-ok');
-    ok.style.display = 'inline';
-    setTimeout(() => ok.style.display = 'none', 2000);
-  });
+  // La institución ahora se gestiona desde la tabla hospitales.
+  // Este panel queda oculto.
+  const card = document.getElementById('cfg-institucion')?.closest('[style*="border"]');
+  if (card) card.style.display = 'none';
 }
 
 function renderCfgInvestigacion() {
