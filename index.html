@@ -5119,6 +5119,10 @@ async function openModalEditarProfesional(profId, targetId) {
     hospAsignados = (rows||[]).map(r => String(r.hospital_id));
   } catch(e) { console.warn('profesional_hospital:', e); }
 
+  // DEBUG TEMP
+  if (!hospitales_lista.length) {
+    try { const _hdbg = await sbGet('hospitales'); hospitales_lista = (_hdbg||[]).map(h=>({id:String(h.id||''),nombre:String(h.nombre||''),codigo:String(h.codigo||''),ciudad:String(h.ciudad||''),servicio:String(h.servicio||'')})); } catch(e){}
+  }
   const hospCheckboxes = hospitales_lista.length > 0
     ? '<div class="field"><label>Instituciones</label><div style="border:0.5px solid var(--mr-border);border-radius:8px;overflow:hidden;margin-top:4px;">'
       + hospitales_lista.map(function(h,i){
@@ -5128,7 +5132,7 @@ async function openModalEditarProfesional(profId, targetId) {
             + '</label>';
         }).join('')
       + '</div></div>'
-    : '';
+    : '<div class="field"><label>Instituciones</label><div style="font-size:12px;color:var(--mr-coral);padding:6px 0;">[lista vacía — '+hospitales_lista.length+' hospitales cargados]</div></div>';
 
   const overlay = document.getElementById('modal-overlay');
   const content = document.getElementById('modal-content');
