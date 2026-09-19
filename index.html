@@ -485,7 +485,9 @@ function mapPac(p) {
 // Filtra pacientes según hospital activo
 function getPacientesHospital() {
   if (!hospitalActual) return pacientes;
-  return pacientes.filter(p => !p.hospitalId || p.hospitalId === hospitalActual.id);
+  // Si hay un único hospital, incluir también pacientes sin hospital_id asignado (datos legacy)
+  const multiHosp = hospitales_lista.length > 1;
+  return pacientes.filter(p => p.hospitalId === hospitalActual.id || (!multiHosp && !p.hospitalId));
 }
 // Filtra turnos según hospital activo
 function getTurnosHospital() {
