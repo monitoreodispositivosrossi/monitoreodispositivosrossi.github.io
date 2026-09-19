@@ -1294,7 +1294,6 @@ async function generarPDFResumen(controlId) {
   if (!pac) return;
 
   // ── Cargar membrete PDF ──
-  // Usar membrete del hospital actual (por hospital), con fallback al global legacy
   const membreteUrlEfectivo = hospitalActual?.membreteUrl || MEMBRETE_URL || '';
   let membreteBytes = null;
   if (membreteUrlEfectivo) {
@@ -1306,124 +1305,293 @@ async function generarPDFResumen(controlId) {
 
   // ── Crear PDF ──
   const pdfDoc = await PDFDocument.create();
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const font     = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
   // Cargar membrete como plantilla si existe
   let membretePdf = null;
-  let membretePageTemplate = null;
   if (membreteBytes) {
     try {
       membretePdf = await PDFDocument.load(membreteBytes);
-      const [paginaPlantilla] = await pdfDoc.copyPages(membretePdf, [0]);
-      membretePageTemplate = paginaPlantilla;
-    } catch(e) { console.warn('Error cargando membrete PDF:', e); }
+    } catch(e) { console.warn('Error cargando membrete PDF:', e); membretePdf = null; }
   }
 
-  // ── Generar texto del resumen ──
-  const tipo = disp ? (TIPOS[disp.tipo] || {nombre: disp.tipo||'?'}).nombre : '-';
-  const nombrePac = pac.nombre.split(', ').reverse().join(' ');
+  // ── Constantes de layout ──
+  const W_pt = 595, H_pt = 842;
+  const margenX = 57;
+  const yInicio = H_pt - 130; // ~45mm desde arriba (espacio para membrete)
+  const yFin    = 100;        // ~35mm desde abajo  (espacio para firma/membrete)
+  const LH      = 13;         // interlineado normal
+  const COLOR_NEGRO  = rgb(0.07, 0.07, 0.07);
+  const COLOR_GRIS   = rgb(0.35, 0.35, 0.35);
+  const COLOR_ALERTA = rgb(0.75, 0.10, 0.10);
+  const maxWidth = W_pt - margenX * 2;
 
-  // Formato mes/año para próximo control
-  const fmtMesAnio = (fechaStr) => {
-    if (!fechaStr) return '-';
-    const [y,m] = fechaStr.split('-');
-    const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-    return `${meses[parseInt(m)-1]} ${y}`;
-  };
-
-  // Usar generarTextoResumen como base del contenido
-  const textoResumen = generarTextoResumen(ctrl.id);
-
-  const lineas = [];
-  lineas.push({ texto: 'CONTROL DE DISPOSITIVO DE ESTIMULACIÓN CARDÍACA', bold: true, size: 10 });
-  lineas.push({ texto: '', bold: false, size: 9 });
-  lineas.push({ texto: `Fecha de control: ${fmtDateLong(ctrl.fechaControl)}`, bold: false, size: 9 });
-  lineas.push({ texto: `Próximo control: ${fmtMesAnio(ctrl.proxControl)}`, bold: false, size: 9 });
-  if (prof) lineas.push({ texto: `Profesional: ${prof.nombre}`, bold: false, size: 9 });
-  lineas.push({ texto: '', bold: false, size: 9 });
-
-  // Agregar el texto completo del resumen de HC
-  textoResumen.split('\n').forEach(l => {
-    const esTitulo = l === l.toUpperCase() && l.trim().length > 3 && !l.includes(':');
-    lineas.push({ texto: l, bold: esTitulo, size: 9 });
-  });
-
-  // ── Renderizar páginas ──
-  const W_pt = 595, H_pt = 842; // A4 en puntos
-  const margenX = 57, yInicio = H_pt - 130, yFin = 100; // márgenes: ~20mm, zona texto entre 45mm y 35mm del fondo
-  const lineHeight = 14;
-
+  // ── Helpers de layout ──
   const nuevaPagina = async () => {
-    let page;
-    if (membretePageTemplate) {
+    if (membretePdf) {
       const [copia] = await pdfDoc.copyPages(membretePdf, [0]);
-      page = pdfDoc.addPage(copia);
-    } else {
-      page = pdfDoc.addPage([W_pt, H_pt]);
+      return pdfDoc.addPage(copia);
     }
-    return page;
+    return pdfDoc.addPage([W_pt, H_pt]);
   };
 
-  let page = await nuevaPagina();
-  let y = yInicio;
-
-  for (const linea of lineas) {
-    if (y < yFin) {
-      page = await nuevaPagina();
-      y = yInicio;
-    }
-    if (linea.texto === '') { y -= lineHeight * 0.6; continue; }
-    const f = linea.bold ? fontBold : font;
-    const maxWidth = W_pt - margenX * 2;
-    // Wrap manual
-    const palabras = linea.texto.split(' ');
+  // Dibuja texto con word-wrap; devuelve nuevo y
+  const drawWrapped = (page, texto, x, yStart, opts = {}) => {
+    const { f = font, size = 9, color = COLOR_NEGRO, indent = 0 } = opts;
+    const xEff = x + indent;
+    const wEff = maxWidth - indent;
+    const palabras = texto.split(' ');
     let lineActual = '';
+    let y = yStart;
     for (const palabra of palabras) {
       const prueba = lineActual ? lineActual + ' ' + palabra : palabra;
-      const ancho = f.widthOfTextAtSize(prueba, linea.size);
-      if (ancho > maxWidth && lineActual) {
-        if (y < yFin) { page = await nuevaPagina(); y = yInicio; }
-        page.drawText(lineActual, { x: margenX, y, font: f, size: linea.size, color: rgb(0.1, 0.1, 0.1) });
-        y -= lineHeight;
+      if (f.widthOfTextAtSize(prueba, size) > wEff && lineActual) {
+        page.drawText(lineActual, { x: xEff, y, font: f, size, color });
+        y -= LH;
         lineActual = palabra;
       } else {
         lineActual = prueba;
       }
     }
     if (lineActual) {
-      if (y < yFin) { page = await nuevaPagina(); y = yInicio; }
-      page.drawText(lineActual, { x: margenX, y, font: f, size: linea.size, color: rgb(0.1, 0.1, 0.1) });
-      y -= lineHeight;
+      page.drawText(lineActual, { x: xEff, y, font: f, size, color });
+      y -= LH;
     }
+    return y;
+  };
+
+  // Línea separadora horizontal
+  const drawHRule = (page, y) => {
+    page.drawLine({ start:{x:margenX,y}, end:{x:W_pt-margenX,y}, thickness:0.5, color:COLOR_GRIS });
+  };
+
+  // Dibuja título de sección (MAYÚSCULA NEGRITA + línea debajo)
+  const drawSeccion = (page, titulo, y) => {
+    page.drawText(titulo, { x:margenX, y, font:fontBold, size:9, color:COLOR_NEGRO });
+    drawHRule(page, y - 3);
+    return y - 14;
+  };
+
+  // Dibuja campo "Label: valor" — omite si valor está vacío
+  const drawCampo = (page, label, valor, y, opts = {}) => {
+    if (!valor) return y;
+    const { size = 9 } = opts;
+    const labelTxt = label + ': ';
+    const labelW   = fontBold.widthOfTextAtSize(labelTxt, size);
+    page.drawText(labelTxt, { x:margenX, y, font:fontBold, size, color:COLOR_NEGRO });
+    return drawWrapped(page, valor, margenX + labelW, y, { size, indent: 0 });
+  };
+
+  // Recuadro con texto (para batería / alerta ERI)
+  const drawRecuadro = (page, lineas, y, opts = {}) => {
+    const { colorBorde = COLOR_GRIS, colorFondo = null, colorTexto = COLOR_NEGRO, bold = false } = opts;
+    const f = bold ? fontBold : font;
+    const size = 9;
+    const padH = 6, padV = 5;
+    const alturaLinea = LH;
+    const totalAltura = lineas.length * alturaLinea + padV * 2;
+    const x0 = margenX, x1 = W_pt - margenX;
+    const yTop = y + padV + (lineas.length - 1) * alturaLinea;
+    if (colorFondo) {
+      page.drawRectangle({ x:x0, y:y - padV, width:x1-x0, height:totalAltura, color:colorFondo, borderColor:colorBorde, borderWidth:0.8 });
+    } else {
+      page.drawRectangle({ x:x0, y:y - padV, width:x1-x0, height:totalAltura, borderColor:colorBorde, borderWidth:0.8 });
+    }
+    let yTxt = yTop;
+    for (const linea of lineas) {
+      page.drawText(linea, { x:x0 + padH, y:yTxt, font:f, size, color:colorTexto });
+      yTxt -= alturaLinea;
+    }
+    return y - padV - alturaLinea * (lineas.length - 1) - alturaLinea; // siguiente y después del recuadro
+  };
+
+  // ── Guardia de página ──
+  let page = await nuevaPagina();
+  let y = yInicio;
+
+  const checkPage = async (needed = LH * 2) => {
+    if (y - needed < yFin) {
+      page = await nuevaPagina();
+      y = yInicio;
+    }
+  };
+
+  // ══════════════════════════════════════════════
+  // TÍTULO PRINCIPAL
+  // ══════════════════════════════════════════════
+  const TITULO = 'CONTROL DE DISPOSITIVO DE ESTIMULACIÓN CARDÍACA';
+  page.drawText(TITULO, { x:margenX, y, font:fontBold, size:11, color:COLOR_NEGRO });
+  y -= 20;
+
+  // ══════════════════════════════════════════════
+  // DATOS DEL PACIENTE
+  // ══════════════════════════════════════════════
+  await checkPage(60);
+  y = drawSeccion(page, 'DATOS DEL PACIENTE', y);
+  y -= 4;
+
+  // Apellido y nombre: APELLIDO, Nombre
+  const partes = pac.nombre.split(', ');
+  const apellido = (partes[0] || '').toUpperCase();
+  const nombre   = partes[1] ? partes[1].charAt(0).toUpperCase() + partes[1].slice(1).toLowerCase() : '';
+  const nombreFormateado = apellido + (nombre ? ', ' + nombre : '');
+  y = drawCampo(page, 'Apellido y nombre', nombreFormateado, y);
+  y -= 2;
+
+  if (pac.dni)             { y = drawCampo(page, 'DNI', pac.dni, y); y -= 2; }
+  const sexoTexto = pac.sexo === 'F' ? 'Femenino' : pac.sexo === 'M' ? 'Masculino' : null;
+  if (sexoTexto)           { y = drawCampo(page, 'Sexo', sexoTexto, y); y -= 2; }
+  if (pac.fechaNacimiento) { y = drawCampo(page, 'Edad', calcularEdad(pac.fechaNacimiento) + ' años', y); y -= 2; }
+  y -= 8;
+
+  // ══════════════════════════════════════════════
+  // DATOS DEL DISPOSITIVO
+  // ══════════════════════════════════════════════
+  await checkPage(80);
+  y = drawSeccion(page, 'DATOS DEL DISPOSITIVO', y);
+  y -= 4;
+
+  if (disp) {
+    const tipoNombre  = (TIPOS[disp.tipo]?.nombre || disp.tipo || '');
+    const tipoCompleto = [tipoNombre, disp.subtipo].filter(Boolean).join(' ');
+    if (tipoCompleto)       { y = drawCampo(page, 'Tipo de dispositivo', tipoCompleto, y); y -= 2; }
+    if (disp.marca)         { y = drawCampo(page, 'Marca', disp.marca.toUpperCase(), y); y -= 2; }
+    if (disp.modelo)        { y = drawCampo(page, 'Modelo', disp.modelo, y); y -= 2; }
+    if (disp.serie)         { y = drawCampo(page, 'Número de serie', disp.serie, y); y -= 2; }
+    if (disp.fechaImplante) { y = drawCampo(page, 'Fecha de implante', fmtDate(disp.fechaImplante), y); y -= 2; }
+    if (disp.motivoImplante){ y = drawCampo(page, 'Motivo del implante', disp.motivoImplante, y); y -= 2; }
+  }
+  y -= 8;
+
+  // ══════════════════════════════════════════════
+  // HISTORIAL DE DISPOSITIVOS (solo si hay anteriores)
+  // ══════════════════════════════════════════════
+  const dispositivosAnteriores = dispositivos
+    .filter(d => d.pacienteId === pac.id && d.id !== ctrl.dispositivoId && !d.activo)
+    .sort((a, b) => (a.fechaImplante || '').localeCompare(b.fechaImplante || ''));
+
+  if (dispositivosAnteriores.length > 0) {
+    await checkPage(30 + dispositivosAnteriores.length * LH * 2);
+    y = drawSeccion(page, 'HISTORIAL DE DISPOSITIVOS', y);
+    y -= 4;
+    dispositivosAnteriores.forEach((d, idx) => {
+      const tNombre  = (TIPOS[d.tipo]?.nombre || d.tipo || '');
+      const tCompleto = [tNombre, d.subtipo].filter(Boolean).join(' ');
+      const partes   = [tCompleto, d.marca?.toUpperCase(), d.modelo, d.fechaImplante ? 'Implantado: ' + fmtDate(d.fechaImplante) : null].filter(Boolean);
+      const linea    = `${idx + 1}. ${partes.join(' · ')}`;
+      y = drawWrapped(page, linea, margenX, y, { size: 9 });
+      y -= 3;
+    });
+    y -= 5;
   }
 
-  // ── Firma ──
+  // ══════════════════════════════════════════════
+  // PARÁMETROS TÉCNICOS
+  // ══════════════════════════════════════════════
+  await checkPage(60);
+  y = drawSeccion(page, 'PARÁMETROS TÉCNICOS', y);
+  y -= 6;
+
+  // ─ Batería en recuadro ─
+  const vidaBat = fmtVidaBateria(ctrl);
+  if (vidaBat && vidaBat !== '-') {
+    await checkPage(40);
+    const bateriaLineas = ['Batería: ' + vidaBat];
+    y = drawRecuadro(page, bateriaLineas, y, { bold: true, colorBorde: COLOR_GRIS });
+    y -= 10;
+  }
+
+  // ─ Alerta ERI ─
+  if (ctrl.enEri) {
+    await checkPage(40);
+    const alertaLineas = ['⚠  DISPOSITIVO EN ESTADO ERI (Elective Replacement Indicator)', '   Se requiere evaluación para recambio del dispositivo.'];
+    y = drawRecuadro(page, alertaLineas, y, { bold: true, colorBorde: COLOR_ALERTA, colorTexto: COLOR_ALERTA });
+    y -= 10;
+  } else if (ctrl.eriProximo === 'Sí') {
+    await checkPage(30);
+    const alertaLineas = ['⚠  Dispositivo próximo a ERI — planificar recambio.'];
+    y = drawRecuadro(page, alertaLineas, y, { colorBorde: COLOR_ALERTA, colorTexto: COLOR_ALERTA });
+    y -= 10;
+  }
+
+  // ─ Resto de parámetros técnicos ─
+  const params = ctrl.parametrosTecnicos || {};
+  const paramsOrdenados = Object.entries(params)
+    .filter(([k, v]) => v && k !== '__otros__' && k !== 'Batería (tiempo)' && k !== 'Batería (%)');
+
+  for (const [k, v] of paramsOrdenados) {
+    let valorTexto = v;
+    if (k === 'Salida autocaptura' && v === 'true') valorTexto = 'Sí (Autocaptura)';
+    else if (k === 'Sensibilidad automática' && v === 'true') valorTexto = 'Sí (Automática)';
+    else if (v === 'true') valorTexto = 'Sí';
+    else if (v === 'false') continue;
+    const unidad = UNIDADES_PARAM[k] ? ' ' + UNIDADES_PARAM[k] : '';
+    await checkPage(LH + 4);
+    y = drawCampo(page, k, valorTexto + unidad, y);
+    y -= 2;
+  }
+
+  if (params['__otros__']) {
+    await checkPage(LH * 3);
+    y -= 4;
+    y = drawWrapped(page, params['__otros__'], margenX, y, { size: 9, color: COLOR_GRIS });
+  }
+  y -= 8;
+
+  // ══════════════════════════════════════════════
+  // PRÓXIMO CONTROL
+  // ══════════════════════════════════════════════
+  await checkPage(60);
+  y = drawSeccion(page, 'PRÓXIMO CONTROL', y);
+  y -= 4;
+
+  if (ctrl.proxControl) {
+    const fmtMesAnio = (fechaStr) => {
+      if (!fechaStr) return '-';
+      const [yr, m] = fechaStr.split('-');
+      const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+      return `${meses[parseInt(m)-1]} de ${yr}`;
+    };
+    y = drawCampo(page, 'Fecha programada', fmtMesAnio(ctrl.proxControl), y);
+    y -= 2;
+  }
+  if (ctrl.indicaciones) {
+    y = drawCampo(page, 'Consideraciones', ctrl.indicaciones, y);
+    y -= 2;
+  }
+  y -= 16;
+
+  // ══════════════════════════════════════════════
+  // FIRMA (imagen, sin nombre ni matrícula)
+  // ══════════════════════════════════════════════
   if (prof?.firmaUrl) {
     try {
       const firmaResp = await fetch(prof.firmaUrl);
       const firmaBytes = await firmaResp.arrayBuffer();
-      const firmaImg = await pdfDoc.embedPng(firmaBytes);
-      const firmaAncho = 113; // 40mm en puntos (~2.83 pt/mm)
-      const firmaAlto = firmaAncho * (firmaImg.height / firmaImg.width);
+      let firmaImg;
+      try { firmaImg = await pdfDoc.embedPng(firmaBytes); }
+      catch(e) { firmaImg = await pdfDoc.embedJpg(firmaBytes); }
+      const firmaAncho = 113; // ~40mm
+      const firmaAlto  = firmaAncho * (firmaImg.height / firmaImg.width);
+      await checkPage(firmaAlto + 20);
       const firmaX = (W_pt - firmaAncho) / 2;
-      const firmaY = yFin + 10;
-      page.drawImage(firmaImg, { x: firmaX, y: firmaY, width: firmaAncho, height: firmaAlto });
-      page.drawText(prof.nombre, { x: W_pt / 2, y: firmaY - 12, font, size: 8, color: rgb(0.3, 0.3, 0.3) });
+      const firmaY = y - firmaAlto;
+      page.drawImage(firmaImg, { x:firmaX, y:firmaY, width:firmaAncho, height:firmaAlto });
     } catch(e) { console.warn('Error cargando firma:', e); }
   }
 
   // ── Descargar ──
   const pdfBytes = await pdfDoc.save();
   const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-  const url = URL.createObjectURL(blob);
+  const urlBlob = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
+  a.href = urlBlob;
   a.download = `HC_${pac.codigo}_${ctrl.fechaControl||'control'}.pdf`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  URL.revokeObjectURL(urlBlob);
 }
 
 
@@ -4277,10 +4445,14 @@ function openModalResumenControl(controlId, onClose = null) {
       <h3 style="margin:0;">Resumen para historia clínica</h3>
     </div>
     <textarea id="resumen-texto" style="width:100%; height:320px; font-size:13px; font-family:monospace; padding:10px; border:1px solid var(--mr-border); border-radius:8px; resize:vertical; line-height:1.6;">${texto}</textarea>
-    <div style="display:flex; gap:8px; margin-top:1rem; align-items:center;">
+    <div style="display:flex; gap:8px; margin-top:1rem; align-items:center; flex-wrap:wrap;">
       <button id="resumen-copiar" class="btn-primary" style="display:flex; align-items:center; gap:6px;">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
         Copiar texto
+      </button>
+      <button id="resumen-pdf" class="btn-secondary" style="display:flex; align-items:center; gap:6px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Descargar PDF
       </button>
       <button id="resumen-cerrar" class="btn-secondary">Cerrar</button>
       <span id="resumen-copiado" style="font-size:12px; color:var(--mr-teal); display:none;">✓ Copiado</span>
@@ -4299,6 +4471,9 @@ function openModalResumenControl(controlId, onClose = null) {
     const msg = document.getElementById('resumen-copiado');
     msg.style.display = 'inline';
     setTimeout(() => msg.style.display = 'none', 2000);
+  });
+  document.getElementById('resumen-pdf').addEventListener('click', () => {
+    generarPDFResumen(controlId);
   });
 }
 
