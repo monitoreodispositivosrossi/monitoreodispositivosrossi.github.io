@@ -1663,7 +1663,12 @@ async function generarPDFResumen(controlId) {
   const urlBlob = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = urlBlob;
-  a.download = `HC_${pac.codigo}_${ctrl.fechaControl||'control'}.pdf`;
+  const partesPac = pac.nombre.split(', ');
+  const apellidoPdf = (partesPac[0] || '').toUpperCase().replace(/\s+/g, '_');
+  const nombrePdf   = (partesPac[1] || '').toUpperCase().replace(/\s+/g, '_');
+  const dniPdf      = (pac.dni || '').replace(/\s+/g, '');
+  const fechaPdf    = (ctrl.fechaControl || 'control').replace(/-/g, '');
+  a.download = `MODI_${dniPdf}_${apellidoPdf}_${nombrePdf}_${fechaPdf}.pdf`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -6070,6 +6075,10 @@ function renderPacienteView() {
     svgIcono = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
   }
 
+  // Fecha de implementación del hospital del paciente
+  const hospitalPac = hospitales_lista.find(h => h.id === pacienteActivo.hospitalId);
+  const fechaImpl = hospitalPac?.fechaImpl || null;
+
   // Historial de controles reales del paciente
   const historial = controles
     .filter(c=>c.pacienteId===pacienteActivo.id)
@@ -6132,7 +6141,12 @@ function renderPacienteView() {
 
     <div style="border:0.5px solid var(--mr-border); border-radius:10px; padding:1rem;">
        <div style="font-size:13px; color:var(--mr-text-muted); margin-bottom:8px;">Historial de controles</div>
-       ${historial.length > 0 ? historial.map(c=>{ const btnPdf = ''; return `
+       ${historial.length > 0 ? historial.map(c=>{
+         const mostrarPdf = fechaImpl && c.fechaControl >= fechaImpl;
+         const btnPdf = mostrarPdf
+           ? `<button data-ctrl-id="${c.id}" class="btn-pdf-paciente" style="font-size:11px; padding:4px 10px; border:0.5px solid var(--mr-border); border-radius:6px; background:transparent; color:var(--mr-text-muted); cursor:pointer;">Descargar PDF</button>`
+           : '';
+         return `
          <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; padding:4px 0; border-bottom:0.5px solid var(--mr-border);">
            <span>Control de dispositivo · ${fmtDate(c.fechaControl)}</span>
            ${btnPdf}
@@ -6140,6 +6154,15 @@ function renderPacienteView() {
    `;
 
   view.innerHTML = html;
+
+  // Botones PDF en historial del paciente
+  view.querySelectorAll('.btn-pdf-paciente').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const ctrlId = parseInt(btn.dataset.ctrlId);
+      generarPDFResumen(ctrlId);
+    });
+  });
+
   renderTurnoPaciente(controlActivo, pacienteActivo, estado).catch(e=>console.error('renderTurnoPaciente:',e));
   renderTurnoPaciente(controlActivo, pacienteActivo, estado).catch(e=>console.error('renderTurnoPaciente:',e));
 }
