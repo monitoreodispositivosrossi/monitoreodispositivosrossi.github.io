@@ -1485,10 +1485,12 @@ async function generarPDFResumen(controlId) {
     const fechaLabel = 'FECHA DE CONTROL: ';
     const fechaValor = sanitizarParaPDF(fmtFechaControl);
     const fechaLabelW = fontBold.widthOfTextAtSize(fechaLabel, 9);
+    const fechaLabelSinEspacio = fechaLabel.trimEnd();
+    const fechaLabelSinEspacioW = fontBold.widthOfTextAtSize(fechaLabelSinEspacio, 9);
     page.drawText(fechaLabel, { x:margenX, y, font:fontBold, size:9, color:COLOR_NEGRO });
     page.drawText(fechaValor, { x:margenX + fechaLabelW, y, font:fontBold, size:9, color:COLOR_NEGRO });
-    // Subrayado solo bajo la etiqueta
-    page.drawLine({ start:{x:margenX, y:y-2}, end:{x:margenX + fechaLabelW, y:y-2}, thickness:0.5, color:COLOR_NEGRO });
+    // Subrayado solo bajo la etiqueta, sin el espacio final
+    page.drawLine({ start:{x:margenX, y:y-2}, end:{x:margenX + fechaLabelSinEspacioW, y:y-2}, thickness:0.5, color:COLOR_NEGRO });
     y -= LH + 16;
   }
 
