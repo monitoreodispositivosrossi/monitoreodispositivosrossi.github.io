@@ -6277,9 +6277,15 @@ async function renderTurnoPaciente(controlActivo, pacienteActivo, estado) {
     (profIdsDelHospital.length === 0 || profIdsDelHospital.includes(p.id))
   );
 
-  // Si no hay profesional seleccionado, mostrar selector
+  // Si no hay profesional seleccionado, preseleccionar el del último control del paciente
   if (!profesionalSeleccionadoPaciente && profsConAgenda.length > 0) {
-    profesionalSeleccionadoPaciente = profsConAgenda[0].id; // default: primer profesional
+    const ultimoControl = controles
+      .filter(c => c.pacienteId === pacienteActivo.id && c.profesionalId)
+      .sort((a,b) => (b.fechaControl||'').localeCompare(a.fechaControl||''))[0];
+    const profUltimo = ultimoControl
+      ? profsConAgenda.find(p => p.id === ultimoControl.profesionalId)
+      : null;
+    profesionalSeleccionadoPaciente = (profUltimo || profsConAgenda[0]).id;
   }
 
   const agendaActiva = profesionalSeleccionadoPaciente
