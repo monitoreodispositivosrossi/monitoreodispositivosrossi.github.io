@@ -809,7 +809,12 @@ async function actualizarProfesional_(profesionalId, nombre, dni, rol) {
   if (idx >= 0) Object.assign(profesionales[idx],{ nombre, dni, ...(rol ? {rol} : {}) });
 }
 async function eliminarProfesional_(id) {
-  await sbDelete('profesionales','id=eq.'+id);
+  const result = await sbDeleteDebug('profesionales','id=eq.'+id);
+  if (result.error) {
+    console.error('Error eliminando profesional:', result.status, result.body);
+    alert('Error al eliminar: ' + result.body);
+    return;
+  }
   profesionales = profesionales.filter(p => p.id !== id);
 }
 
@@ -4824,12 +4829,14 @@ function renderConfig() {
         <div style="padding:1rem;" id="cfg-hospitales"></div>
       </div>
       <div style="border:0.5px solid var(--mr-border); border-radius:10px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-        <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); font-weight:700; font-size:13px; color:var(--mr-primary);">Usuarios del sistema</div>
+        <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); display:flex; align-items:center; justify-content:space-between;">
+          <span style="font-weight:700; font-size:13px; color:var(--mr-primary);">Usuarios del sistema</span>
+          <button id="btn-nuevo-prof-cfg-prof" class="btn-primary" style="font-size:12px; padding:5px 12px;">+ Nuevo usuario</button>
+        </div>
         <div style="padding:1rem;" id="cfg-prof"></div>
       </div>
-      <div style="border:0.5px solid var(--mr-border); border-radius:10px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-        <div style="display:none;">Configuración de agenda</div>
-        <div style="padding:1rem; display:none;" id="cfg-agenda"></div>
+      <div style="display:none;" id="cfg-agenda-section">
+        <div id="cfg-agenda"></div>
       </div>
       <div style="display:none;" id="cfg-documentos-section">
         <div style="padding:1rem;" id="cfg-documentos"></div>
@@ -4843,11 +4850,17 @@ function renderConfig() {
         <div style="padding:1rem;" id="cfg-institucion"></div>
       </div>
       <div style="border:0.5px solid var(--mr-border); border-radius:10px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-        <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); font-weight:700; font-size:13px; color:var(--mr-primary);">Marcas de dispositivos</div>
+        <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); display:flex; align-items:center; justify-content:space-between;">
+          <span style="font-weight:700; font-size:13px; color:var(--mr-primary);">Marcas de dispositivos</span>
+          <button id="cfg-marcas-nueva" class="btn-primary" style="font-size:12px; padding:5px 12px;">+ Nueva marca</button>
+        </div>
         <div style="padding:1rem;" id="cfg-marcas"></div>
       </div>
       <div style="border:0.5px solid var(--mr-border); border-radius:10px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
-        <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); font-weight:700; font-size:13px; color:var(--mr-primary);">Motivos de implante</div>
+        <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); display:flex; align-items:center; justify-content:space-between;">
+          <span style="font-weight:700; font-size:13px; color:var(--mr-primary);">Motivos de implante</span>
+          <button id="cfg-motivos-nuevo" class="btn-primary" style="font-size:12px; padding:5px 12px;">+ Nuevo motivo</button>
+        </div>
         <div style="padding:1rem;" id="cfg-motivos"></div>
       </div>
       <div style="border:0.5px solid var(--mr-border); border-radius:10px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
@@ -5090,13 +5103,7 @@ function renderCfgInvestigacion() {
 
 function renderMotivos() {
   const container = document.getElementById('cfg-motivos');
-  let html = `
-    <div style="display:flex; justify-content:flex-end; margin-bottom:0.75rem;">
-      <button id="cfg-motivos-nuevo" class="btn-primary" style="font-size:13px; display:flex; align-items:center; gap:6px;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Nuevo motivo
-      </button>
-    </div>`;
+  let html = ``;
   MOTIVOS_IMPLANTE.forEach((m, i) => {
     const usado = dispositivos.some(d => d.motivoImplante === m);
     html += `
@@ -5116,7 +5123,8 @@ function renderMotivos() {
   });
   container.innerHTML = html;
 
-  document.getElementById('cfg-motivos-nuevo').addEventListener('click', () => openModalMotivo(null, null));
+  const btnNuevoMotivo = document.getElementById('cfg-motivos-nuevo');
+  if (btnNuevoMotivo) { btnNuevoMotivo.onclick = () => openModalMotivo(null, null); }
 
   container.querySelectorAll('.cfg-motivo-editar').forEach(btn => {
     btn.addEventListener('click', () => openModalMotivo(parseInt(btn.dataset.idx), MOTIVOS_IMPLANTE[parseInt(btn.dataset.idx)]));
@@ -5178,14 +5186,7 @@ function openModalMotivo(idx, valorActual) {
 
 function renderMarcas() {
   const container = document.getElementById('cfg-marcas');
-  let html = `
-    <div style="display:flex; justify-content:flex-end; margin-bottom:0.75rem;">
-      <button id="cfg-marcas-nueva" class="btn-primary" style="font-size:13px; display:flex; align-items:center; gap:6px;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Nueva marca
-      </button>
-    </div>
-    <div id="cfg-marcas-lista">`;
+  let html = `<div id="cfg-marcas-lista">`;
   MARCAS_DISPOSITIVOS.forEach((m, i) => {
     const usada = dispositivos.some(d => d.marca === m);
     html += `
@@ -5206,9 +5207,8 @@ function renderMarcas() {
   html += `</div>`;
   container.innerHTML = html;
 
-  document.getElementById('cfg-marcas-nueva').addEventListener('click', () => {
-    openModalMarca(null, null);
-  });
+  const btnNuevaMarca = document.getElementById('cfg-marcas-nueva');
+  if (btnNuevaMarca) { btnNuevaMarca.onclick = () => openModalMarca(null, null); }
 
   container.querySelectorAll('.cfg-marca-editar').forEach(btn => {
     btn.addEventListener('click', () => openModalMarca(parseInt(btn.dataset.idx), MARCAS_DISPOSITIVOS[parseInt(btn.dataset.idx)]));
@@ -5367,19 +5367,27 @@ function renderControlesParaEliminar(pacienteId) {
 function renderProfesionales(targetId = 'view-prof') {
   const view = document.getElementById(targetId);
   const isConfig = targetId !== 'view-prof';
-  view.innerHTML = `
-    ${!isConfig ? '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;"><h3 style="margin:0;">Profesionales</h3>' : '<div style="display:flex; justify-content:flex-end; margin-bottom:0.75rem;">'}
-      <button id="btn-nuevo-prof-${targetId}" class="btn-primary" style="font-size:13px; display:flex; align-items:center; gap:6px;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Nuevo usuario
-      </button>
-    </div>
-    <div id="lista-prof-${targetId}"></div>
-  `;
+  if (!isConfig) {
+    view.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+        <h3 style="margin:0;">Profesionales</h3>
+        <button id="btn-nuevo-prof-${targetId}" class="btn-primary" style="font-size:13px; display:flex; align-items:center; gap:6px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nuevo usuario
+        </button>
+      </div>
+      <div id="lista-prof-${targetId}"></div>
+    `;
+    document.getElementById(`btn-nuevo-prof-${targetId}`).addEventListener('click', () => {
+      openModalProfesional(() => renderListaProfesionalesEn(targetId));
+    });
+  } else {
+    view.innerHTML = `<div id="lista-prof-${targetId}"></div>`;
+    // Button is in the card header (btn-nuevo-prof-cfg-prof)
+    const btn = document.getElementById(`btn-nuevo-prof-${targetId}`);
+    if (btn) { btn.onclick = () => openModalProfesional(() => renderListaProfesionalesEn(targetId)); }
+  }
   renderListaProfesionalesEn(targetId);
-  document.getElementById(`btn-nuevo-prof-${targetId}`).addEventListener('click', () => {
-    openModalProfesional(() => renderListaProfesionalesEn(targetId));
-  });
 }
 
 async function renderListaProfesionalesEn(targetId) {
