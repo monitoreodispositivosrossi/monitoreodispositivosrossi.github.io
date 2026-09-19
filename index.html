@@ -5120,10 +5120,10 @@ async function openModalEditarProfesional(profId, targetId) {
   } catch(e) { console.warn('profesional_hospital:', e); }
 
   const hospCheckboxes = hospitales_lista.length > 0
-    ? `<div class="field"><label>Instituciones</label><div style="display:flex;flex-direction:column;gap:4px;margin-top:4px;">
-        ${hospitales_lista.map(h => `<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:normal;cursor:pointer;">
-          <input type="checkbox" class="epr-hosp-cb" value="${h.id}" ${hospAsignados.includes(h.id)?'checked':''} style="cursor:pointer;">
-          ${h.nombre}${h.ciudad ? ' · <span style="color:var(--mr-text-muted);font-size:12px;">'+h.ciudad+'</span>' : ''}
+    ? `<div class="field"><label>Instituciones</label><div style="border:0.5px solid var(--mr-border);border-radius:8px;overflow:hidden;margin-top:4px;">
+        ${hospitales_lista.map((h,i) => `<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;background:#fff;${i>0?'border-top:0.5px solid var(--mr-border)':''};">
+          <input type="checkbox" class="epr-hosp-cb" value="${h.id}" ${hospAsignados.includes(h.id)?'checked':''} style="cursor:pointer;flex-shrink:0;">
+          <div><div style="font-size:13px;font-weight:500;">${h.nombre}</div>${h.ciudad?'<div style="font-size:11px;color:var(--mr-text-muted);">'+h.ciudad+'</div>':''}</div>
         </label>`).join('')}
       </div></div>` : '';
 
@@ -5179,10 +5179,10 @@ function openModalProfesional(onSaved) {
   const content = document.getElementById('modal-content');
   overlay.classList.add('show');
   const hospCheckboxesMPR = hospitales_lista.length > 0
-    ? `<div class="field"><label>Instituciones</label><div style="display:flex;flex-direction:column;gap:4px;margin-top:4px;">
-        ${hospitales_lista.map(h => `<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:normal;cursor:pointer;">
-          <input type="checkbox" class="mpr-hosp-cb" value="${h.id}" style="cursor:pointer;">
-          ${h.nombre}${h.ciudad ? ' · <span style="color:var(--mr-text-muted);font-size:12px;">'+h.ciudad+'</span>' : ''}
+    ? `<div class="field"><label>Instituciones</label><div style="border:0.5px solid var(--mr-border);border-radius:8px;overflow:hidden;margin-top:4px;">
+        ${hospitales_lista.map((h,i) => `<label style="display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;background:#fff;${i>0?'border-top:0.5px solid var(--mr-border)':''};">
+          <input type="checkbox" class="mpr-hosp-cb" value="${h.id}" style="cursor:pointer;flex-shrink:0;">
+          <div><div style="font-size:13px;font-weight:500;">${h.nombre}</div>${h.ciudad?'<div style="font-size:11px;color:var(--mr-text-muted);">'+h.ciudad+'</div>':''}</div>
         </label>`).join('')}
       </div></div>` : '';
   content.innerHTML = `
