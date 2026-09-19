@@ -4565,6 +4565,10 @@ function renderConfig() {
         <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); font-weight:700; font-size:13px; color:var(--mr-primary);">Institución</div>
         <div style="padding:1rem;" id="cfg-institucion"></div>
       </div>
+      <div id="cfg-hospitales-card" style="border:0.5px solid var(--mr-border); border-radius:10px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06); display:none;">
+        <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); font-weight:700; font-size:13px; color:var(--mr-primary);">Hospitales / Instituciones</div>
+        <div style="padding:1rem;" id="cfg-hospitales"></div>
+      </div>
       <div style="border:0.5px solid var(--mr-border); border-radius:10px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
         <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); font-weight:700; font-size:13px; color:var(--mr-primary);">Investigación</div>
         <div style="padding:1rem;" id="cfg-investigacion"></div>
@@ -4588,10 +4592,101 @@ function renderConfig() {
   renderAgendasProfesionales();
   renderSeccionDocumentos();
   renderCfgInstitucion();
+  renderHospitales();
   renderCfgInvestigacion();
   renderMarcas();
   renderMotivos();
   renderAdminDatos();
+}
+
+function renderHospitales() {
+  // Solo visible para admin
+  const card = document.getElementById('cfg-hospitales-card');
+  const cont = document.getElementById('cfg-hospitales');
+  if (!card || !cont) return;
+  if (profesionalLogueado?.rol !== 'admin') { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+
+  function render() {
+    cont.innerHTML = `
+      <div style="margin-bottom:1rem;">
+        ${hospitales_lista.map(h => `
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:0.5px solid var(--mr-border); border-radius:8px; margin-bottom:6px; background:#fff;">
+            <div>
+              <span style="font-weight:600; font-size:13px;">${h.nombre}</span>
+              ${h.codigo ? `<span style="font-size:11px; color:var(--mr-text-muted); margin-left:8px;">(${h.codigo})</span>` : ''}
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button class="btn-sm" onclick="editarHospital('${h.id}')" title="Editar">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <button class="btn-primary" style="font-size:13px;" onclick="nuevoHospital()">+ Nuevo hospital</button>
+    `;
+  }
+  render();
+}
+
+function nuevoHospital() {
+  const modal = document.getElementById('modal-hospital');
+  if (modal) { document.getElementById('mhosp-id').value = ''; document.getElementById('mhosp-nombre').value = ''; document.getElementById('mhosp-codigo').value = ''; document.getElementById('mhosp-title').textContent = 'Nuevo hospital'; modal.style.display = 'flex'; return; }
+  // Crear modal si no existe
+  const div = document.createElement('div');
+  div.id = 'modal-hospital';
+  div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:1000;';
+  div.innerHTML = `
+    <div style="background:#fff;border-radius:12px;padding:1.5rem;width:100%;max-width:360px;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
+      <h4 id="mhosp-title" style="margin:0 0 1rem;">Nuevo hospital</h4>
+      <input type="hidden" id="mhosp-id">
+      <div class="field"><label>Nombre de la institución</label><input type="text" id="mhosp-nombre" placeholder="Ej: Hospital Italiano"></div>
+      <div class="field"><label>Código (opcional)</label><input type="text" id="mhosp-codigo" placeholder="Ej: HI"></div>
+      <div id="mhosp-msg" class="msg err" style="display:none;margin-bottom:0.5rem;"></div>
+      <div style="display:flex;gap:8px;margin-top:1rem;">
+        <button class="btn-primary" style="flex:1;" onclick="guardarHospital()">Guardar</button>
+        <button class="btn-secondary" style="flex:1;" onclick="document.getElementById('modal-hospital').style.display='none'">Cancelar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(div);
+}
+
+function editarHospital(id) {
+  const h = hospitales_lista.find(x => x.id === id);
+  if (!h) return;
+  nuevoHospital();
+  setTimeout(() => {
+    document.getElementById('mhosp-id').value = h.id;
+    document.getElementById('mhosp-nombre').value = h.nombre;
+    document.getElementById('mhosp-codigo').value = h.codigo || '';
+    document.getElementById('mhosp-title').textContent = 'Editar hospital';
+  }, 50);
+}
+
+async function guardarHospital() {
+  const id = document.getElementById('mhosp-id').value.trim();
+  const nombre = document.getElementById('mhosp-nombre').value.trim();
+  const codigo = document.getElementById('mhosp-codigo').value.trim();
+  const msg = document.getElementById('mhosp-msg');
+  if (!nombre) { msg.textContent = 'El nombre es obligatorio.'; msg.style.display = 'block'; return; }
+  msg.style.display = 'none';
+  if (id) {
+    // Editar existente
+    await sbUpdate('hospitales', 'id=eq.'+id, { nombre, codigo: codigo || null });
+    const h = hospitales_lista.find(x => x.id === id);
+    if (h) { h.nombre = nombre; h.codigo = codigo; }
+    if (hospitalActual?.id === id) { hospitalActual.nombre = nombre; hospitalActual.codigo = codigo; actualizarTextoInstitucional(); }
+  } else {
+    // Nuevo hospital: usar UUID simple basado en timestamp
+    const newId = 'H' + Date.now();
+    await sbInsert('hospitales', { id: newId, nombre, codigo: codigo || null });
+    hospitales_lista.push({ id: newId, nombre, codigo });
+  }
+  document.getElementById('modal-hospital').style.display = 'none';
+  renderHospitales();
+  _actualizarSelectorHospitalHeader();
+  await registrarAccion(null, 'config', id ? 'Hospital editado: '+nombre : 'Hospital creado: '+nombre);
 }
 
 function renderCfgInstitucion() {
