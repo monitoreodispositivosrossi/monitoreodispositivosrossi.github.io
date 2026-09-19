@@ -4609,10 +4609,24 @@ async function renderHospitales() {
   cont.innerHTML = '<p style="font-size:13px; color:var(--mr-text-muted);">Cargando...</p>';
 
   // Recargar desde Supabase para tener datos frescos
+  let rawText = '';
+  let fetchStatus = '';
   try {
-    const rows = await sbGet('hospitales');
-    hospitales_lista = (rows||[]).map(h => ({ id:String(h.id||''), nombre:String(h.nombre||''), codigo:String(h.codigo||''), ciudad:String(h.ciudad||'') }));
-  } catch(e) { console.error('Error cargando hospitales:', e); }
+    const url = `${SUPABASE_URL}/rest/v1/hospitales?select=*`;
+    const r = await fetch(url, { headers: _h() });
+    fetchStatus = r.status;
+    rawText = await r.text();
+    if (r.ok) {
+      const rows = JSON.parse(rawText);
+      hospitales_lista = (rows||[]).map(h => ({ id:String(h.id||''), nombre:String(h.nombre||''), codigo:String(h.codigo||''), ciudad:String(h.ciudad||'') }));
+    } else {
+      cont.innerHTML = `<div style="background:#fff3f3;border:1px solid #f44;border-radius:8px;padding:10px;font-size:12px;"><strong>Error ${fetchStatus}:</strong><br><pre style="margin:4px 0;white-space:pre-wrap;">${rawText}</pre></div><button class="btn-primary" style="font-size:13px;margin-top:8px;" onclick="nuevoHospital()">+ Nuevo hospital</button>`;
+      return;
+    }
+  } catch(e) {
+    cont.innerHTML = `<div style="background:#fff3f3;border:1px solid #f44;border-radius:8px;padding:10px;font-size:12px;"><strong>Error de red:</strong> ${e.message}</div>`;
+    return;
+  }
 
   const filas = hospitales_lista.map(h => {
     const extra = h.ciudad ? `<span style="font-size:11px; color:var(--mr-text-muted); margin-left:8px;">${h.ciudad}</span>` : '';
@@ -4627,7 +4641,7 @@ async function renderHospitales() {
   }).join('');
   cont.innerHTML = (filas
     ? `<div style="margin-bottom:1rem;">${filas}</div>`
-    : `<p style="font-size:13px; color:var(--mr-text-muted); margin-bottom:1rem;">No hay hospitales registrados.</p>`)
+    : `<p style="font-size:13px; color:var(--mr-text-muted); margin-bottom:1rem;">No hay hospitales registrados. (Respuesta: ${rawText})</p>`)
     + `<button class="btn-primary" style="font-size:13px;" onclick="nuevoHospital()">+ Nuevo hospital</button>`;
 }
 
