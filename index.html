@@ -1485,12 +1485,10 @@ async function generarPDFResumen(controlId) {
     const fechaLabel = 'FECHA DE CONTROL: ';
     const fechaValor = sanitizarParaPDF(fmtFechaControl);
     const fechaLabelW = fontBold.widthOfTextAtSize(fechaLabel, 9);
-    const fechaValorW = font.widthOfTextAtSize(fechaValor, 9);
     page.drawText(fechaLabel, { x:margenX, y, font:fontBold, size:9, color:COLOR_NEGRO });
-    page.drawText(fechaValor, { x:margenX + fechaLabelW, y, font, size:9, color:COLOR_NEGRO });
-    // Subrayado bajo toda la línea
-    const fechaLineaW = fechaLabelW + fechaValorW;
-    page.drawLine({ start:{x:margenX, y:y-2}, end:{x:margenX + fechaLineaW, y:y-2}, thickness:0.5, color:COLOR_NEGRO });
+    page.drawText(fechaValor, { x:margenX + fechaLabelW, y, font:fontBold, size:9, color:COLOR_NEGRO });
+    // Subrayado solo bajo la etiqueta
+    page.drawLine({ start:{x:margenX, y:y-2}, end:{x:margenX + fechaLabelW, y:y-2}, thickness:0.5, color:COLOR_NEGRO });
     y -= LH + 16;
   }
 
@@ -1667,7 +1665,7 @@ async function generarPDFResumen(controlId) {
   const apellidoPdf = (partesPac[0] || '').toUpperCase().replace(/\s+/g, '_');
   const nombrePdf   = (partesPac[1] || '').toUpperCase().replace(/\s+/g, '_');
   const dniPdf      = (pac.dni || '').replace(/\s+/g, '');
-  const fechaPdf    = (ctrl.fechaControl || 'control').replace(/-/g, '');
+  const fechaPdf    = ctrl.fechaControl || 'control';
   a.download = `MODI_${dniPdf}_${apellidoPdf}_${nombrePdf}_${fechaPdf}.pdf`;
   document.body.appendChild(a);
   a.click();
@@ -6158,12 +6156,11 @@ function renderPacienteView() {
   // Botones PDF en historial del paciente
   view.querySelectorAll('.btn-pdf-paciente').forEach(btn => {
     btn.addEventListener('click', () => {
-      const ctrlId = parseInt(btn.dataset.ctrlId);
+      const ctrlId = btn.dataset.ctrlId;
       generarPDFResumen(ctrlId);
     });
   });
 
-  renderTurnoPaciente(controlActivo, pacienteActivo, estado).catch(e=>console.error('renderTurnoPaciente:',e));
   renderTurnoPaciente(controlActivo, pacienteActivo, estado).catch(e=>console.error('renderTurnoPaciente:',e));
 }
 
