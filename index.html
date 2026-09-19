@@ -5183,13 +5183,11 @@ async function openModalEditarProfesional(profId, targetId) {
     const seleccionados = [...document.querySelectorAll('.epr-hosp-cb:checked')].map(cb => cb.value);
     const agregar = seleccionados.filter(hid => !hospAsignados.includes(hid));
     const quitar  = hospAsignados.filter(hid => !seleccionados.includes(hid));
-    alert('DEBUG: seleccionados='+JSON.stringify(seleccionados)+' | hospAsignados='+JSON.stringify(hospAsignados)+' | agregar='+JSON.stringify(agregar)+' | quitar='+JSON.stringify(quitar));
     const resultados = await Promise.all([
       ...agregar.map(async hid => { const r = await sbInsertDebug('profesional_hospital', { profesional_id: profId, hospital_id: hid }); return r; }),
       ...quitar.map(async hid  => { const r = await sbDeleteDebug('profesional_hospital', 'profesional_id=eq.'+profId+'&hospital_id=eq.'+hid); return r; })
     ]);
-    const errores = resultados.filter(r => r && r.error);
-    if (errores.length) { alert('Error: ' + JSON.stringify(errores)); }
+    alert('RESULTADO: '+JSON.stringify(resultados));
     closeModal();
     renderListaProfesionalesEn(targetId);
   });
