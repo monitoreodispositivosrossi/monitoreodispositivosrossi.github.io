@@ -2943,6 +2943,13 @@ async function renderForm() {
     const proxControl = addMonths(fechaControl, meses);
     const proxMesesTotal = meses + semanas * 0.5;
 
+    // Confirmar si el valor de meses quedó en el default (6) y es un control nuevo
+    if (!modoEdicion && meses === 6 && semanas === 0) {
+      const proxFechaStr = proxControl.toLocaleDateString('es-AR', {day:'2-digit', month:'long', year:'numeric'});
+      const confirmar = confirm(`⏱ El próximo control está programado para 6 meses (${proxFechaStr}).\n\n¿Es correcto este intervalo?`);
+      if (!confirmar) { _submitRunning = false; return; }
+    }
+
     const dispositivoId = document.getElementById('f-dispositivo').value;
 
     let controlGuardado;
