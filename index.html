@@ -439,6 +439,18 @@ let profesionalSeleccionadoPaciente = null; // profesional elegido por el pacien
 let FECHA_IMPLEMENTACION_STR = '2026-08-01';
 let FECHA_IMPLEMENTACION = new Date(2026, 7, 1); // local
 
+// Devuelve la fecha de implementación del hospital dado, o la global como fallback
+function getFechaImpl(hospitalId) {
+  const h = hospitalId ? hospitales_lista.find(x => x.id === hospitalId) : null;
+  if (h && h.fechaImpl) return parseLocalDate(h.fechaImpl);
+  return FECHA_IMPLEMENTACION;
+}
+function getFechaImplStr(hospitalId) {
+  const h = hospitalId ? hospitales_lista.find(x => x.id === hospitalId) : null;
+  if (h && h.fechaImpl) return h.fechaImpl;
+  return FECHA_IMPLEMENTACION_STR;
+}
+
 // ===================== HELPERS DE FECHA (sin bug UTC) =====================
 // REGLA: todas las fechas del dominio (control, turno, implante) son strings 'YYYY-MM-DD'
 // y se convierten a Date LOCAL con parseLocalDate. NUNCA new Date(string) directamente.
@@ -530,7 +542,7 @@ async function cargarDataset() {
     sbGet('turnos_reservados'), sbGet('acciones_contacto'), sbGet('config_general'), sbGet('contadores'), sbGet('agenda_profesional'), sbGet('hospitales')
   ]);
   profesionales = (pr||[]).map(p => ({ id:String(p.id||''), nombre:String(p.nombre||''), dni:String(p.dni||''), rol:String(p.rol||'medico'), firmaUrl:String(p.firma_url||'') }));
-  hospitales_lista = (hosp||[]).map(h => ({ id:String(h.id||''), nombre:String(h.nombre||''), codigo:String(h.codigo||''), ciudad:String(h.ciudad||''), servicio:String(h.servicio||''), membreteUrl:String(h.membrete_url||'') }));
+  hospitales_lista = (hosp||[]).map(h => ({ id:String(h.id||''), nombre:String(h.nombre||''), codigo:String(h.codigo||''), ciudad:String(h.ciudad||''), servicio:String(h.servicio||''), membreteUrl:String(h.membrete_url||''), fechaImpl:String(h.fecha_implementacion||'') }));
   // Si hay un solo hospital, setearlo directamente (caso HIGA Fase 1)
   if (!hospitalActual && hospitales_lista.length === 1) {
     hospitalActual = hospitales_lista[0];
@@ -859,10 +871,15 @@ function _actualizarSelectorHospitalHeader() {
   const select = document.getElementById('hdr-hospital-select');
   if (!sel || !select) return;
   const esAdmin = profesionalLogueado?.rol === 'admin';
-  if (esAdmin && hospitales_lista.length > 1) {
-    select.innerHTML = hospitales_lista.map(h =>
+  const esInvestigador = profesionalLogueado?.rol === 'investigador';
+  if ((esAdmin || esInvestigador) && hospitales_lista.length > 1) {
+    let opts = hospitales_lista.map(h =>
       `<option value="${h.id}" ${hospitalActual && h.id===hospitalActual.id ? 'selected':''}>${h.nombre}</option>`
     ).join('');
+    if (esInvestigador || esAdmin) {
+      opts = `<option value="" ${!hospitalActual ? 'selected' : ''}>Todos los hospitales</option>` + opts;
+    }
+    select.innerHTML = opts;
     sel.style.display = 'flex';
   } else {
     sel.style.display = 'none';
@@ -1164,7 +1181,8 @@ function vidaBateriaEstimadaHoy(c) {
 function calcularFase(c) {
   if (c.fase) return c.fase;
   const _fc = _parseFmt(c.fechaControl);
-  return _fc < FECHA_IMPLEMENTACION ? 'Retrospectivo' : 'Prospectivo';
+  const pac = pacientes.find(p => p.id === c.pacienteId);
+  return _fc < getFechaImpl(pac?.hospitalId) ? 'Retrospectivo' : 'Prospectivo';
 }
 
 function datosIncompletos(c) {
@@ -1428,7 +1446,7 @@ function getControlesPendientes() {
         fechaProgramada: proxFecha,
         diasAtraso,
         seguimientoPerdido: diasAtraso >= 180,
-        fase: proxFecha < FECHA_IMPLEMENTACION ? 'Retrospectivo' : 'Prospectivo'
+        fase: proxFecha < getFechaImpl(pac.hospitalId) ? 'Retrospectivo' : 'Prospectivo'
       });
     }
   });
@@ -3075,6 +3093,10 @@ async function renderForm() {
 
 /* ===================== MODALES ===================== */
 function openModalPacienteSimple(onSaved) {
+  if (!hospitalActual) {
+    alert('Seleccioná un hospital específico antes de crear un paciente.');
+    return;
+  }
   const overlay = document.getElementById('modal-overlay');
   const content = document.getElementById('modal-content');
   overlay.classList.add('show');
@@ -3133,6 +3155,10 @@ function openModalPacienteSimple(onSaved) {
 }
 
 function openModalPaciente(onSaved) {
+  if (!hospitalActual) {
+    alert('Seleccioná un hospital específico antes de crear un paciente.');
+    return;
+  }
   const overlay = document.getElementById('modal-overlay');
   const content = document.getElementById('modal-content');
   overlay.classList.add('show');
@@ -4560,7 +4586,7 @@ async function renderHospitales() {
   // Recargar desde Supabase para tener datos frescos
   try {
     const rows = await sbGet('hospitales');
-    hospitales_lista = (rows||[]).map(h => ({ id:String(h.id||''), nombre:String(h.nombre||''), codigo:String(h.codigo||''), ciudad:String(h.ciudad||''), servicio:String(h.servicio||''), membreteUrl:String(h.membrete_url||'') }));
+    hospitales_lista = (rows||[]).map(h => ({ id:String(h.id||''), nombre:String(h.nombre||''), codigo:String(h.codigo||''), ciudad:String(h.ciudad||''), servicio:String(h.servicio||''), membreteUrl:String(h.membrete_url||''), fechaImpl:String(h.fecha_implementacion||'') }));
   } catch(e) { console.error('Error cargando hospitales:', e); }
 
   // Cargar asignaciones profesional_hospital
@@ -4607,6 +4633,7 @@ function nuevoHospital() {
     document.getElementById('mhosp-servicio').value = '';
     document.getElementById('mhosp-ciudad').value = '';
     document.getElementById('mhosp-title').textContent = 'Nuevo hospital';
+    document.getElementById('mhosp-fecha-impl').value = '';
     document.getElementById('mhosp-membrete-actual').textContent = 'Sin membrete';
     document.getElementById('mhosp-membrete-file').value = '';
     document.getElementById('mhosp-membrete-msg').style.display = 'none';
@@ -4625,6 +4652,7 @@ function nuevoHospital() {
       <div class="field"><label>Nombre de la institución</label><input type="text" id="mhosp-nombre" placeholder="Ej: Hospital Italiano"></div>
       <div class="field"><label>Nombre del servicio</label><input type="text" id="mhosp-servicio" placeholder="Ej: Servicio de Cardiología"></div>
       <div class="field"><label>Ciudad</label><input type="text" id="mhosp-ciudad" placeholder="Ej: La Plata"></div>
+      <div class="field"><label>Fecha de corte (inicio fase prospectiva)</label><input type="date" id="mhosp-fecha-impl"><div style="font-size:11px;color:var(--mr-text-muted);margin-top:3px;">Controles anteriores a esta fecha se clasifican como Retrospectivos.</div></div>
       <div class="field">
         <label>Hoja membretada</label>
         <div id="mhosp-membrete-actual" style="font-size:12px;color:var(--mr-text-muted);margin-bottom:6px;">Sin membrete</div>
@@ -4654,6 +4682,7 @@ function editarHospital(id) {
     document.getElementById('mhosp-nombre').value = h.nombre;
     document.getElementById('mhosp-servicio').value = h.servicio || '';
     document.getElementById('mhosp-ciudad').value = h.ciudad || '';
+    document.getElementById('mhosp-fecha-impl').value = h.fechaImpl || '';
     document.getElementById('mhosp-title').textContent = 'Editar hospital';
     const memActual = document.getElementById('mhosp-membrete-actual');
     const btnElim = document.getElementById('mhosp-membrete-eliminar');
@@ -4674,20 +4703,21 @@ async function guardarHospital() {
   const nombre = document.getElementById('mhosp-nombre').value.trim();
   const servicio = document.getElementById('mhosp-servicio').value.trim();
   const ciudad = document.getElementById('mhosp-ciudad').value.trim();
+  const fechaImpl = document.getElementById('mhosp-fecha-impl').value.trim();
   const msg = document.getElementById('mhosp-msg');
   if (!nombre) { msg.textContent = 'El nombre es obligatorio.'; msg.style.display = 'block'; return; }
   msg.style.display = 'none';
   if (id) {
     // Editar existente
-    await sbUpdate('hospitales', 'id=eq.'+id, { nombre, servicio: servicio || null, ciudad: ciudad || null });
+    await sbUpdate('hospitales', 'id=eq.'+id, { nombre, servicio: servicio || null, ciudad: ciudad || null, fecha_implementacion: fechaImpl || null });
     const h = hospitales_lista.find(x => x.id === id);
-    if (h) { h.nombre = nombre; h.servicio = servicio; h.ciudad = ciudad; }
-    if (hospitalActual?.id === id) { hospitalActual.nombre = nombre; hospitalActual.servicio = servicio; hospitalActual.ciudad = ciudad; actualizarTextoInstitucional(); }
+    if (h) { h.nombre = nombre; h.servicio = servicio; h.ciudad = ciudad; h.fechaImpl = fechaImpl; }
+    if (hospitalActual?.id === id) { hospitalActual.nombre = nombre; hospitalActual.servicio = servicio; hospitalActual.ciudad = ciudad; hospitalActual.fechaImpl = fechaImpl; actualizarTextoInstitucional(); }
   } else {
     // Nuevo hospital: usar UUID simple basado en timestamp
     const newId = 'H' + Date.now();
-    await sbInsert('hospitales', { id: newId, nombre, servicio: servicio || null, ciudad: ciudad || null });
-    hospitales_lista.push({ id: newId, nombre, servicio, ciudad, membreteUrl: '' });
+    await sbInsert('hospitales', { id: newId, nombre, servicio: servicio || null, ciudad: ciudad || null, fecha_implementacion: fechaImpl || null });
+    hospitales_lista.push({ id: newId, nombre, servicio, ciudad, membreteUrl: '', fechaImpl });
   }
   document.getElementById('modal-hospital').style.display = 'none';
   renderHospitales();
@@ -4761,29 +4791,10 @@ function renderCfgInstitucion() {
 function renderCfgInvestigacion() {
   const container = document.getElementById('cfg-investigacion');
   container.innerHTML = `
-    <div class="field" style="max-width:280px;">
-      <label>Fecha de corte (inicio fase prospectiva)</label>
-      <input type="date" id="cfg-fecha-corte" value="${FECHA_IMPLEMENTACION_STR}">
-      <div style="font-size:12px; color:var(--mr-text-muted); margin-top:4px;">
-        Los controles anteriores a esta fecha se clasifican como <strong>Retrospectivo</strong>; los posteriores como <strong>Prospectivo</strong>.
-      </div>
-    </div>
-    <div style="display:flex; gap:8px; margin-top:0.75rem;">
-      <button id="cfg-fecha-corte-guardar" class="btn-primary" style="font-size:13px;">Guardar</button>
-      <span id="cfg-fecha-corte-ok" style="font-size:12px; color:var(--mr-teal); display:none; align-items:center; gap:4px;">✓ Guardado</span>
+    <div style="font-size:12px;color:var(--mr-text-muted);">
+      La fecha de corte entre fase retrospectiva y prospectiva se configura por institución desde <strong>Configuración → Instituciones</strong>, editando cada hospital.
     </div>
   `;
-  document.getElementById('cfg-fecha-corte-guardar').addEventListener('click', () => {
-    const val = document.getElementById('cfg-fecha-corte').value;
-    if (!val) return;
-    FECHA_IMPLEMENTACION_STR = val;
-    const [y,m,d] = val.split('-');
-    FECHA_IMPLEMENTACION = new Date(+y, +m-1, +d);
-    guardarConfig_('FECHA_IMPLEMENTACION_STR', val).catch(e=>console.error('cfg FECHA_IMPLEMENTACION_STR:',e));
-    const ok = document.getElementById('cfg-fecha-corte-ok');
-    ok.style.display = 'inline-flex';
-    setTimeout(() => ok.style.display = 'none', 2000);
-  });
 }
 
 function renderMotivos() {
@@ -5457,6 +5468,12 @@ function renderInvestigacion() {
 
   let html = `
     <h3>Datos de investigación</h3>
+    <div style="margin-bottom:1rem;">
+      ${hospitalActual
+        ? `<span style="font-size:12px;background:var(--mr-teal-bg);color:var(--mr-teal-text);padding:3px 10px;border-radius:20px;font-weight:600;">📍 ${hospitalActual.nombre}</span>`
+        : `<span style="font-size:12px;background:var(--mr-amber-bg);color:var(--mr-amber-text);padding:3px 10px;border-radius:20px;font-weight:600;">🏥 Todos los hospitales</span>`
+      }
+    </div>
     <div id="seccion-indicadores" style="margin-bottom:1.5rem;"></div>
     <div style="font-size:13px; color:var(--mr-text-muted); margin-bottom:1rem;">
       <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><rect x="9" y="11" width="6" height="5" rx="1"/><path d="M10 11V9a2 2 0 1 1 4 0v2"/></svg>
@@ -5565,7 +5582,7 @@ function getDatosInvestigacion() {
       edad: calcularEdad(pac.fechaNacimiento) ?? '-',
       tipoDispositivo: tipo?.nombre || '-',
       fase: calcularFase(c),
-      faseRetraso: c.fechaProgramada < FECHA_IMPLEMENTACION_STR ? 'Retrospectivo' : 'Prospectivo',
+      faseRetraso: c.fechaProgramada < getFechaImplStr(pac?.hospitalId) ? 'Retrospectivo' : 'Prospectivo',
       fechaProgramada: c.fechaProgramada,
       fechaRealizada: c.fechaControl,
       retrasoDias,
@@ -6095,14 +6112,17 @@ document.getElementById('login-dni').addEventListener('keydown', e => {
 
 document.getElementById('hdr-hospital-select').addEventListener('change', function() {
   const hospId = this.value;
-  const hosp = hospitales_lista.find(h => h.id === hospId);
-  if (hosp) {
-    hospitalActual = hosp;
+  if (!hospId) {
+    // "Todos los hospitales" — solo para investigador
+    hospitalActual = null;
     actualizarTextoInstitucional();
-    // Recargar la vista actual para reflejar el cambio de hospital
-    const activeBtn = document.querySelector('.nav-btn.active');
-    if (activeBtn) showView(activeBtn.dataset.view);
+  } else {
+    const hosp = hospitales_lista.find(h => h.id === hospId);
+    if (hosp) { hospitalActual = hosp; actualizarTextoInstitucional(); }
   }
+  // Recargar la vista actual para reflejar el cambio de hospital
+  const activeBtn = document.querySelector('.nav-btn.active');
+  if (activeBtn) showView(activeBtn.dataset.view);
 });
 
 document.getElementById('btn-logout').addEventListener('click', cerrarSesion);
