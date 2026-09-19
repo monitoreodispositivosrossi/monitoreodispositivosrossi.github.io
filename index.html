@@ -6021,7 +6021,7 @@ document.getElementById('btn-login').addEventListener('click', async () => {
   // Consultar hospitales del profesional en profesional_hospital
   let hospIds = [];
   try {
-    const rows = await sbGet('profesional_hospital?profesional_id=eq.'+prof.id);
+    const rows = await sbGet('profesional_hospital', 'profesional_id=eq.'+prof.id);
     hospIds = (rows||[]).map(r => String(r.hospital_id));
   } catch(e) { console.warn('profesional_hospital no disponible:', e); }
 
