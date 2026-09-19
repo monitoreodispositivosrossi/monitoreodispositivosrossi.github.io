@@ -373,7 +373,8 @@ async function sbGet(tabla, qs = '') {
   return r.json();
 }
 async function sbInsert(tabla, datos) {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${tabla}`, { method: 'POST', headers: _hj(), body: JSON.stringify(datos) });
+  const h = { ..._hj(), 'Prefer': 'return=representation,resolution=merge-duplicates' };
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${tabla}`, { method: 'POST', headers: h, body: JSON.stringify(datos) });
   if (!r.ok) { console.error('sbInsert', tabla, r.status, await r.text()); return null; }
   const res = await r.json(); return Array.isArray(res) ? res[0] : res;
 }
@@ -387,7 +388,8 @@ async function sbDelete(tabla, filtro) {
   return r.ok;
 }
 async function sbInsertDebug(tabla, datos) {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${tabla}`, { method: 'POST', headers: _hj(), body: JSON.stringify(datos) });
+  const h = { ..._hj(), 'Prefer': 'return=representation,resolution=merge-duplicates' };
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${tabla}`, { method: 'POST', headers: h, body: JSON.stringify(datos) });
   const txt = await r.text();
   if (!r.ok) return { error: true, status: r.status, body: txt, datos };
   return { ok: true, body: txt };
