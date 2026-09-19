@@ -1431,7 +1431,7 @@ function getControlesPendientes() {
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   const pendientes = [];
 
-  pacientes.forEach(pac => {
+  getPacientesHospital().forEach(pac => {
     if (pac.estado !== 'Activo') return; // No generar pendientes para trasladados, fallecidos, etc.
     const controlesPaciente = controles.filter(c=>c.pacienteId===pac.id);
     if (controlesPaciente.length === 0) return;
