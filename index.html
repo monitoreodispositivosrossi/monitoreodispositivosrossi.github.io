@@ -1336,8 +1336,8 @@ async function generarPDFResumen(controlId) {
   // ── Constantes de layout ──
   const W_pt = 595, H_pt = 842;
   const margenX = 57;
-  const yInicio = H_pt - 130; // ~45mm desde arriba (espacio para membrete)
-  const yFin    = 100;        // ~35mm desde abajo  (espacio para firma/membrete)
+  const yInicio = H_pt - 100; // ~35mm desde arriba (espacio para membrete)
+  const yFin    = 50;         // ~18mm desde abajo  (espacio para membrete inferior)
   const LH      = 13;         // interlineado normal
   const COLOR_NEGRO  = rgb(0.07, 0.07, 0.07);
   const COLOR_GRIS   = rgb(0.35, 0.35, 0.35);
@@ -1658,7 +1658,11 @@ async function generarPDFResumen(controlId) {
       catch(e) { firmaImg = await pdfDoc.embedJpg(firmaBytes); }
       const firmaAncho = 113; // ~40mm
       const firmaAlto  = firmaAncho * (firmaImg.height / firmaImg.width);
-      await checkPage(firmaAlto + 20);
+      // Nueva página solo si la firma no cabe físicamente (sin contar yFin)
+      if (y - firmaAlto < 50) {
+        page = await nuevaPagina();
+        y = yInicio;
+      }
       const firmaX = (W_pt - firmaAncho) / 2;
       const firmaY = y - firmaAlto;
       page.drawImage(firmaImg, { x:firmaX, y:firmaY, width:firmaAncho, height:firmaAlto });
