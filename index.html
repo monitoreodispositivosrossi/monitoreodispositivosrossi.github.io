@@ -1288,6 +1288,9 @@ function openModalSituacion(pacienteId, desdeFicha = false) {
 function sanitizarParaPDF(texto) {
   if (!texto) return '';
   return String(texto)
+    .replace(/\r\n/g, ' ')
+    .replace(/[\r\n]/g, ' ')  // saltos de línea → espacio (drawWrapped se encarga del wrap)
+    .replace(/\t/g, ' ')
     .replace(/Ω/g, 'Ohm')
     .replace(/⚠/g, '(!)')
     .replace(/[""]/g, '"')
@@ -1470,6 +1473,17 @@ async function generarPDFResumen(controlId) {
   page.drawRectangle({ x:margenX, y:y - tituloPadV, width:maxWidth, height:tituloAltura, borderColor:COLOR_NEGRO, borderWidth:0.8 });
   page.drawText(TITULO, { x:tituloX, y, font:fontBold, size:TITULO_SIZE, color:COLOR_NEGRO });
   y -= tituloAltura + 10;
+
+  // Fecha del control
+  if (ctrl.fechaControl) {
+    const fmtFechaControl = (() => {
+      const [yr, mo, dy] = ctrl.fechaControl.split('-');
+      const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+      return `${parseInt(dy)} de ${meses[parseInt(mo)-1]} de ${yr}`;
+    })();
+    page.drawText(sanitizarParaPDF('Fecha de control: ' + fmtFechaControl), { x:margenX, y, font, size:9, color:COLOR_NEGRO });
+    y -= LH + 6;
+  }
 
   // ══════════════════════════════════════════════
   // DATOS DEL PACIENTE
