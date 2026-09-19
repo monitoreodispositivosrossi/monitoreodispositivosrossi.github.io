@@ -384,6 +384,13 @@ async function sbUpdate(tabla, filtro, datos) {
   if (!r.ok) console.error('sbUpdate', tabla, r.status, await r.text());
   return r.ok;
 }
+async function sbUpsert(tabla, datos, onConflict) {
+  const h = { ..._hj(), 'Prefer': 'return=minimal,resolution=merge-duplicates' };
+  const url = `${SUPABASE_URL}/rest/v1/${tabla}${onConflict ? '?on_conflict='+onConflict : ''}`;
+  const r = await fetch(url, { method: 'POST', headers: h, body: JSON.stringify(datos) });
+  if (!r.ok) console.error('sbUpsert', tabla, r.status, await r.text());
+  return r.ok;
+}
 async function sbDelete(tabla, filtro) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${tabla}?${filtro}`, { method: 'DELETE', headers: _h() });
   return r.ok;
@@ -855,9 +862,8 @@ async function guardarAgendaProf_(profId, cambios) {
     turnos_online:    nueva.turnosOnline || 2,
     modulo_activo:    nueva.moduloActivo
   };
-  // Intentar update, si no existe insertar
-  const ok = await sbUpdate('agenda_profesional', 'profesional_id=eq.'+profId, row);
-  if (!ok) await sbInsert('agenda_profesional', row);
+  // Upsert: inserta o actualiza según profesional_id (clave primaria)
+  await sbUpsert('agenda_profesional', row, 'profesional_id');
 }
 
 async function guardarConfig_(clave, valor) {
