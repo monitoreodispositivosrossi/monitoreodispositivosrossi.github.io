@@ -406,6 +406,8 @@ function tienePermiso(modulo) {
   return (ROLES[rol]?.modulos || []).includes(modulo);
 }
 
+let hospitales_lista = []; // lista de hospitales
+let hospitalActual = null;  // hospital seleccionado al loguearse
 let AGENDAS_PROFESIONALES = {};
 let MEMBRETE_URL = ''; // URL de la hoja membretada
 let profesionalSeleccionadoPaciente = null; // profesional elegido por el paciente para sacar turno // { profesionalId: { diasAtencion, horarios, diasBloqueados, ventanaReserva, horizonteTurnos, moduloActivo } }
@@ -439,9 +441,16 @@ function mapPac(p) {
     estado: String(p.estado||'Activo'),
     motivoBaja: p.motivo_baja || null,
     fechaBaja:  p.fecha_baja  || null,
-    obsBaja:    p.obs_baja    || null
+    obsBaja:    p.obs_baja    || null,
+    hospitalId: String(p.hospital_id||'')
   };
 }
+// Filtra pacientes según hospital activo (si hay multi-hospital activo)
+function getPacientesHospital() {
+  if (!hospitalActual) return pacientes;
+  return pacientes.filter(p => !p.hospitalId || p.hospitalId === hospitalActual.id);
+}
+
 function mapDisp(d) {
   // Normalizar tipo: puede venir como clave 'T1' o como nombre 'Marcapasos'
   let tipoNorm = String(d.tipo||'');
@@ -485,11 +494,20 @@ function mapAccion(a) {
 
 // ===================== CARGA INICIAL =====================
 async function cargarDataset() {
-  const [pr,pa,di,co,tu,ac,cfg,cnt,agp] = await Promise.all([
+  const [pr,pa,di,co,tu,ac,cfg,cnt,agp,hosp] = await Promise.all([
     sbGet('profesionales'), sbGet('pacientes'), sbGet('dispositivos'), sbGet('controles'),
-    sbGet('turnos_reservados'), sbGet('acciones_contacto'), sbGet('config_general'), sbGet('contadores'), sbGet('agenda_profesional')
+    sbGet('turnos_reservados'), sbGet('acciones_contacto'), sbGet('config_general'), sbGet('contadores'), sbGet('agenda_profesional'), sbGet('hospitales')
   ]);
   profesionales = (pr||[]).map(p => ({ id:String(p.id||''), nombre:String(p.nombre||''), dni:String(p.dni||''), rol:String(p.rol||'medico'), firmaUrl:String(p.firma_url||'') }));
+  hospitales_lista = (hosp||[]).map(h => ({ id:String(h.id||''), nombre:String(h.nombre||''), codigo:String(h.codigo||'') }));
+  // Establecer hospital actual del profesional logueado (si no está seteado)
+  if (!hospitalActual && profesionalActivo) {
+    const profId = String(profesionalActivo.id);
+    // Por ahora: el profesional pertenece a un hospital según sus pacientes o se toma el primero
+    if (hospitales_lista.length > 0) {
+      hospitalActual = hospitales_lista[0]; // Fase 1: un solo hospital
+    }
+  }
   pacientes     = (pa||[]).map(mapPac);
   dispositivos  = (di||[]).map(mapDisp);
   controles     = (co||[]).map(mapCtrl);
@@ -551,7 +569,8 @@ async function guardarNuevoPaciente_(datos) {
   const codigo = generarCodigo();
   const row = { id, nombre:datos.nombre, dni:datos.dni, tel:datos.tel||'', codigo,
     sexo:datos.sexo, fecha_nacimiento:datos.fechaNacimiento||null,
-    consentimiento:!!datos.consentimiento, estado:datos.estado||'Activo' };
+    consentimiento:!!datos.consentimiento, estado:datos.estado||'Activo',
+    hospital_id: hospitalActual ? hospitalActual.id : null };
   await sbInsert('pacientes', row);
   pacientes.push(mapPac({...row, fecha_nacimiento: row.fecha_nacimiento}));
   return { id, codigo };
@@ -852,9 +871,11 @@ const DIAS_SEMANA_CORTOS = ['dom','lun','mar','mié','jue','vie','sáb'];
 
 
 function actualizarTextoInstitucional() {
+  // Si hay hospital activo (multi-hospital), mostrar su nombre en el header
+  const nombreInstitucion = hospitalActual ? hospitalActual.nombre : CONFIG_INSTITUCION.institucion;
   const ids = {
     'hdr-servicio': `Monitoreo de Dispositivos · ${CONFIG_INSTITUCION.servicio}`,
-    'hdr-institucion': CONFIG_INSTITUCION.institucion,
+    'hdr-institucion': nombreInstitucion,
     'login-servicio': `Monitoreo de Dispositivos · ${CONFIG_INSTITUCION.servicio}`,
     'login-institucion': CONFIG_INSTITUCION.institucion,
     'loginpac-servicio': `Monitoreo de Dispositivos · ${CONFIG_INSTITUCION.servicio}`,
