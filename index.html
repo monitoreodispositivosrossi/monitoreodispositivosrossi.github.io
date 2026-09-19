@@ -1907,10 +1907,15 @@ async function subirArchivoStorage(bucket, path, file) {
   const url = `${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`;
   const r = await fetch(url, {
     method: 'POST',
-    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': file.type, 'x-upsert': 'true' },
+    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': file.type || 'application/octet-stream', 'x-upsert': 'true' },
     body: file
   });
-  if (!r.ok) { console.error('Storage error:', await r.text()); return null; }
+  if (!r.ok) {
+    const errText = await r.text();
+    console.error('Storage error:', r.status, errText);
+    alert('Error al subir archivo (bucket: ' + bucket + ')\nHTTP ' + r.status + ': ' + errText);
+    return null;
+  }
   return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
 }
 
