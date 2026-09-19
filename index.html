@@ -4611,14 +4611,42 @@ async function renderHospitales() {
     hospitales_lista = (rows||[]).map(h => ({ id:String(h.id||''), nombre:String(h.nombre||''), codigo:String(h.codigo||''), ciudad:String(h.ciudad||''), servicio:String(h.servicio||'') }));
   } catch(e) { console.error('Error cargando hospitales:', e); }
 
+  // Cargar asignaciones profesional_hospital
+  let asignaciones = {};
+  try {
+    const rows = await sbGet('profesional_hospital');
+    (rows||[]).forEach(r => {
+      const hid = String(r.hospital_id);
+      if (!asignaciones[hid]) asignaciones[hid] = [];
+      asignaciones[hid].push(String(r.profesional_id));
+    });
+  } catch(e) { console.warn('profesional_hospital no disponible:', e); }
+
   const filas = hospitales_lista.map(h => {
     const extra = h.ciudad ? `<span style="font-size:11px; color:var(--mr-text-muted); margin-left:8px;">${h.ciudad}</span>` : '';
-    return `<div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:0.5px solid var(--mr-border); border-radius:8px; margin-bottom:6px; background:#fff;">
-      <div><span style="font-weight:600; font-size:13px;">${h.nombre}</span>${extra}</div>
-      <div style="display:flex; gap:6px;">
-        <button class="btn-sm" onclick="editarHospital('${h.id}')" title="Editar">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-        </button>
+    const profAsignados = asignaciones[h.id] || [];
+    const checkboxes = profesionales.map(p => {
+      const checked = profAsignados.includes(p.id) ? 'checked' : '';
+      return `<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 0;cursor:pointer;">
+        <input type="checkbox" ${checked} onchange="toggleProfHospital('${p.id}','${h.id}',this.checked)" style="cursor:pointer;">
+        ${p.nombre}
+      </label>`;
+    }).join('');
+    return `<div style="border:0.5px solid var(--mr-border); border-radius:8px; margin-bottom:8px; background:#fff; overflow:hidden;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px;">
+        <div><span style="font-weight:600; font-size:13px;">${h.nombre}</span>${extra}</div>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <button class="btn-sm" onclick="toggleProfSection('${h.id}')" title="Profesionales" style="font-size:11px; padding:3px 8px;">
+            👤 ${profAsignados.length}
+          </button>
+          <button class="btn-sm" onclick="editarHospital('${h.id}')" title="Editar">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="prof-section-${h.id}" style="display:none; border-top:0.5px solid var(--mr-border); padding:8px 12px; background:var(--mr-bg);">
+        <div style="font-size:11px; font-weight:600; color:var(--mr-text-muted); margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">Profesionales asignados</div>
+        ${checkboxes || '<p style="font-size:12px;color:var(--mr-text-muted);">Sin profesionales registrados.</p>'}
       </div>
     </div>`;
   }).join('');
@@ -4696,6 +4724,21 @@ async function guardarHospital() {
   renderHospitales();
   _actualizarSelectorHospitalHeader();
   await registrarAccion(null, 'config', id ? 'Hospital editado: '+nombre : 'Hospital creado: '+nombre);
+}
+
+function toggleProfSection(hospId) {
+  const sec = document.getElementById('prof-section-' + hospId);
+  if (sec) sec.style.display = sec.style.display === 'none' ? 'block' : 'none';
+}
+
+async function toggleProfHospital(profId, hospId, agregar) {
+  try {
+    if (agregar) {
+      await sbInsert('profesional_hospital', { profesional_id: profId, hospital_id: hospId });
+    } else {
+      await sbDelete('profesional_hospital', 'profesional_id=eq.'+profId+'&hospital_id=eq.'+hospId);
+    }
+  } catch(e) { console.error('toggleProfHospital:', e); }
 }
 
 function renderCfgInstitucion() {
