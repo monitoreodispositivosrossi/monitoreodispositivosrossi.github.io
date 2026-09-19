@@ -4608,24 +4608,21 @@ function renderHospitales() {
   card.style.display = 'block';
 
   function render() {
-    cont.innerHTML = `
-      <div style="margin-bottom:1rem;">
-        ${hospitales_lista.map(h => `
-          <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:0.5px solid var(--mr-border); border-radius:8px; margin-bottom:6px; background:#fff;">
-            <div>
-              <span style="font-weight:600; font-size:13px;">${h.nombre}</span>
-              ${h.codigo ? `<span style="font-size:11px; color:var(--mr-text-muted); margin-left:8px;">(${h.codigo})</span>` : ''}
-            </div>
-            <div style="display:flex; gap:6px;">
-              <button class="btn-sm" onclick="editarHospital('${h.id}')" title="Editar">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-              </button>
-            </div>
-          </div>
-        `).join('')}
-      </div>
-      <button class="btn-primary" style="font-size:13px;" onclick="nuevoHospital()">+ Nuevo hospital</button>
-    `;
+    const filas = hospitales_lista.map(h => {
+      const codigo = h.codigo ? `<span style="font-size:11px; color:var(--mr-text-muted); margin-left:8px;">(${h.codigo})</span>` : '';
+      return `<div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:0.5px solid var(--mr-border); border-radius:8px; margin-bottom:6px; background:#fff;">
+        <div><span style="font-weight:600; font-size:13px;">${h.nombre}</span>${codigo}</div>
+        <div style="display:flex; gap:6px;">
+          <button class="btn-sm" onclick="editarHospital('${h.id}')" title="Editar">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+        </div>
+      </div>`;
+    }).join('');
+    cont.innerHTML = (filas
+      ? `<div style="margin-bottom:1rem;">${filas}</div>`
+      : `<p style="font-size:13px; color:var(--mr-text-muted); margin-bottom:1rem;">No hay hospitales registrados.</p>`)
+      + `<button class="btn-primary" style="font-size:13px;" onclick="nuevoHospital()">+ Nuevo hospital</button>`;
   }
   render();
 }
