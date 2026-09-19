@@ -4816,6 +4816,13 @@ function renderConfig() {
   view.innerHTML = `
     <h3>Configuración</h3>
     <div style="display:grid; gap:1.5rem;">
+      <div id="cfg-hospitales-card" style="border:0.5px solid var(--mr-border); border-radius:10px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06); display:none;">
+        <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); display:flex; align-items:center; justify-content:space-between;">
+          <span style="font-weight:700; font-size:13px; color:var(--mr-primary);">Hospitales / Instituciones</span>
+          <button class="btn-primary" style="font-size:12px; padding:5px 12px;" onclick="nuevoHospital()">+ Nuevo hospital</button>
+        </div>
+        <div style="padding:1rem;" id="cfg-hospitales"></div>
+      </div>
       <div style="border:0.5px solid var(--mr-border); border-radius:10px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
         <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); font-weight:700; font-size:13px; color:var(--mr-primary);">Usuarios del sistema</div>
         <div style="padding:1rem;" id="cfg-prof"></div>
@@ -4834,10 +4841,6 @@ function renderConfig() {
       <div style="border:0.5px solid var(--mr-border); border-radius:10px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
         <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); font-weight:700; font-size:13px; color:var(--mr-primary);">Institución</div>
         <div style="padding:1rem;" id="cfg-institucion"></div>
-      </div>
-      <div id="cfg-hospitales-card" style="border:0.5px solid var(--mr-border); border-radius:10px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06); display:none;">
-        <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); font-weight:700; font-size:13px; color:var(--mr-primary);">Hospitales / Instituciones</div>
-        <div style="padding:1rem;" id="cfg-hospitales"></div>
       </div>
       <div style="border:0.5px solid var(--mr-border); border-radius:10px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,0.06);">
         <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); font-weight:700; font-size:13px; color:var(--mr-primary);">Marcas de dispositivos</div>
@@ -4908,10 +4911,9 @@ async function renderHospitales() {
       </div>
     </div>`;
   }).join('');
-  cont.innerHTML = (filas
-    ? `<div style="margin-bottom:1rem;">${filas}</div>`
-    : `<p style="font-size:13px; color:var(--mr-text-muted); margin-bottom:1rem;">No hay hospitales registrados.</p>`)
-    + `<button class="btn-primary" style="font-size:13px;" onclick="nuevoHospital()">+ Nuevo hospital</button>`;
+  cont.innerHTML = filas
+    ? `<div>${filas}</div>`
+    : `<p style="font-size:13px; color:var(--mr-text-muted);">No hay hospitales registrados.</p>`;
 }
 
 function nuevoHospital() {
