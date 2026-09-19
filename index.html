@@ -386,6 +386,18 @@ async function sbDelete(tabla, filtro) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/${tabla}?${filtro}`, { method: 'DELETE', headers: _h() });
   return r.ok;
 }
+async function sbInsertDebug(tabla, datos) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${tabla}`, { method: 'POST', headers: _hj(), body: JSON.stringify(datos) });
+  const txt = await r.text();
+  if (!r.ok) return { error: true, status: r.status, body: txt, datos };
+  return { ok: true, body: txt };
+}
+async function sbDeleteDebug(tabla, filtro) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${tabla}?${filtro}`, { method: 'DELETE', headers: _h() });
+  const txt = await r.text();
+  if (!r.ok) return { error: true, status: r.status, body: txt };
+  return { ok: true };
+}
 
 // ===================== VARIABLES GLOBALES =====================
 const TIPOS = { T1:{nombre:'Marcapasos',lapso:12}, T2:{nombre:'CDI',lapso:6}, T3:{nombre:'TRC (resincronizador)',lapso:6}, T4:{nombre:'CDI+TRC',lapso:6} };
@@ -5169,10 +5181,13 @@ async function openModalEditarProfesional(profId, targetId) {
     const seleccionados = [...document.querySelectorAll('.epr-hosp-cb:checked')].map(cb => cb.value);
     const agregar = seleccionados.filter(hid => !hospAsignados.includes(hid));
     const quitar  = hospAsignados.filter(hid => !seleccionados.includes(hid));
-    await Promise.all([
-      ...agregar.map(hid => sbInsert('profesional_hospital', { profesional_id: profId, hospital_id: hid })),
-      ...quitar.map(hid  => sbDelete('profesional_hospital', 'profesional_id=eq.'+profId+'&hospital_id=eq.'+hid))
+    console.log('DEBUG hosp - seleccionados:', seleccionados, '| hospAsignados:', hospAsignados, '| agregar:', agregar, '| quitar:', quitar);
+    const resultados = await Promise.all([
+      ...agregar.map(async hid => { const r = await sbInsertDebug('profesional_hospital', { profesional_id: profId, hospital_id: hid }); console.log('INSERT hosp', hid, r); return r; }),
+      ...quitar.map(async hid  => { const r = await sbDeleteDebug('profesional_hospital', 'profesional_id=eq.'+profId+'&hospital_id=eq.'+hid); console.log('DELETE hosp', hid, r); return r; })
     ]);
+    const errores = resultados.filter(r => r && r.error);
+    if (errores.length) { alert('Error al guardar instituciones: ' + JSON.stringify(errores)); }
     closeModal();
     renderListaProfesionalesEn(targetId);
   });
