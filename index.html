@@ -1321,7 +1321,9 @@ async function generarPDFResumen(controlId) {
   if (!pac) return;
 
   // ── Cargar membrete PDF ──
-  const membreteUrlEfectivo = hospitalActual?.membreteUrl || MEMBRETE_URL || '';
+  // Usar el hospital del paciente (funciona tanto desde vista profesional como vista paciente)
+  const hospitalDelPac = hospitales_lista.find(h => h.id === pac.hospitalId);
+  const membreteUrlEfectivo = hospitalDelPac?.membreteUrl || hospitalActual?.membreteUrl || MEMBRETE_URL || '';
   let membreteBytes = null;
   if (membreteUrlEfectivo) {
     try {
@@ -6115,10 +6117,10 @@ function renderPacienteView() {
   const hospitalPac = hospitales_lista.find(h => h.id === pacienteActivo.hospitalId);
   const fechaImpl = hospitalPac?.fechaImpl || null;
 
-  // Historial de controles reales del paciente
+  // Historial de controles reales del paciente — del más reciente al más antiguo
   const historial = controles
     .filter(c=>c.pacienteId===pacienteActivo.id)
-    .sort((a,b)=>diasRestantes(a.fechaControl)-diasRestantes(b.fechaControl))
+    .sort((a,b) => (b.fechaControl || '').localeCompare(a.fechaControl || ''))
     .slice(0,3);
 
   // Indicador de batería
