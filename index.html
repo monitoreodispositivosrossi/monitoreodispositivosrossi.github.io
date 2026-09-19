@@ -1481,8 +1481,17 @@ async function generarPDFResumen(controlId) {
       const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
       return `${parseInt(dy)} de ${meses[parseInt(mo)-1]} de ${yr}`;
     })();
-    page.drawText(sanitizarParaPDF('Fecha de control: ' + fmtFechaControl), { x:margenX, y, font, size:9, color:COLOR_NEGRO });
-    y -= LH + 6;
+    // Label "FECHA DE CONTROL:" en negrita, mismo estilo que títulos de sección
+    const fechaLabel = 'FECHA DE CONTROL: ';
+    const fechaValor = sanitizarParaPDF(fmtFechaControl);
+    const fechaLabelW = fontBold.widthOfTextAtSize(fechaLabel, 9);
+    const fechaValorW = font.widthOfTextAtSize(fechaValor, 9);
+    page.drawText(fechaLabel, { x:margenX, y, font:fontBold, size:9, color:COLOR_NEGRO });
+    page.drawText(fechaValor, { x:margenX + fechaLabelW, y, font, size:9, color:COLOR_NEGRO });
+    // Subrayado bajo toda la línea
+    const fechaLineaW = fechaLabelW + fechaValorW;
+    page.drawLine({ start:{x:margenX, y:y-2}, end:{x:margenX + fechaLineaW, y:y-2}, thickness:0.5, color:COLOR_NEGRO });
+    y -= LH + 16;
   }
 
   // ══════════════════════════════════════════════
