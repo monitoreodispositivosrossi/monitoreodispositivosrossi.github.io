@@ -1284,6 +1284,20 @@ function openModalSituacion(pacienteId, desdeFicha = false) {
 }
 
 // ===================== GENERACIÓN DE PDF HC =====================
+// Reemplaza caracteres fuera de WinAnsi que pdf-lib no puede codificar con Helvetica estándar
+function sanitizarParaPDF(texto) {
+  if (!texto) return '';
+  return String(texto)
+    .replace(/Ω/g, 'Ohm')
+    .replace(/⚠/g, '(!)')
+    .replace(/[""]/g, '"')
+    .replace(/['']/g, "'")
+    .replace(/–/g, '-')
+    .replace(/—/g, '-')
+    .replace(/…/g, '...')
+    .replace(/[^\x00-\xFF]/g, '?'); // cualquier otro char fuera de latin-1
+}
+
 async function generarPDFResumen(controlId) {
   const { PDFDocument, rgb, StandardFonts } = PDFLib;
   const ctrl = controles.find(c => c.id === controlId);
@@ -1341,7 +1355,7 @@ async function generarPDFResumen(controlId) {
     const { f = font, size = 9, color = COLOR_NEGRO, indent = 0 } = opts;
     const xEff = x + indent;
     const wEff = maxWidth - indent;
-    const palabras = texto.split(' ');
+    const palabras = sanitizarParaPDF(texto).split(' ');
     let lineActual = '';
     let y = yStart;
     for (const palabra of palabras) {
@@ -1368,7 +1382,7 @@ async function generarPDFResumen(controlId) {
 
   // Dibuja título de sección (MAYÚSCULA NEGRITA + línea debajo)
   const drawSeccion = (page, titulo, y) => {
-    page.drawText(titulo, { x:margenX, y, font:fontBold, size:9, color:COLOR_NEGRO });
+    page.drawText(sanitizarParaPDF(titulo), { x:margenX, y, font:fontBold, size:9, color:COLOR_NEGRO });
     drawHRule(page, y - 3);
     return y - 14;
   };
@@ -1377,10 +1391,10 @@ async function generarPDFResumen(controlId) {
   const drawCampo = (page, label, valor, y, opts = {}) => {
     if (!valor) return y;
     const { size = 9 } = opts;
-    const labelTxt = label + ': ';
+    const labelTxt = sanitizarParaPDF(label) + ': ';
     const labelW   = fontBold.widthOfTextAtSize(labelTxt, size);
     page.drawText(labelTxt, { x:margenX, y, font:fontBold, size, color:COLOR_NEGRO });
-    return drawWrapped(page, valor, margenX + labelW, y, { size, indent: 0 });
+    return drawWrapped(page, String(valor), margenX + labelW, y, { size, indent: 0 });
   };
 
   // Recuadro con texto (para batería / alerta ERI)
@@ -1400,7 +1414,7 @@ async function generarPDFResumen(controlId) {
     }
     let yTxt = yTop;
     for (const linea of lineas) {
-      page.drawText(linea, { x:x0 + padH, y:yTxt, font:f, size, color:colorTexto });
+      page.drawText(sanitizarParaPDF(linea), { x:x0 + padH, y:yTxt, font:f, size, color:colorTexto });
       yTxt -= alturaLinea;
     }
     return y - padV - alturaLinea * (lineas.length - 1) - alturaLinea; // siguiente y después del recuadro
@@ -1420,7 +1434,7 @@ async function generarPDFResumen(controlId) {
   // ══════════════════════════════════════════════
   // TÍTULO PRINCIPAL
   // ══════════════════════════════════════════════
-  const TITULO = 'CONTROL DE DISPOSITIVO DE ESTIMULACIÓN CARDÍACA';
+  const TITULO = 'CONTROL DE DISPOSITIVO DE ESTIMULACION CARDIACA';
   page.drawText(TITULO, { x:margenX, y, font:fontBold, size:11, color:COLOR_NEGRO });
   y -= 20;
 
