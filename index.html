@@ -1388,13 +1388,40 @@ async function generarPDFResumen(controlId) {
   };
 
   // Dibuja campo "Label: valor" — omite si valor está vacío
+  // La primera línea del valor va inline con el label; las siguientes vuelven al margen izquierdo
   const drawCampo = (page, label, valor, y, opts = {}) => {
     if (!valor) return y;
     const { size = 9 } = opts;
     const labelTxt = sanitizarParaPDF(label) + ': ';
     const labelW   = fontBold.widthOfTextAtSize(labelTxt, size);
     page.drawText(labelTxt, { x:margenX, y, font:fontBold, size, color:COLOR_NEGRO });
-    return drawWrapped(page, String(valor), margenX + labelW, y, { size, indent: 0 });
+
+    // Partir el valor en palabras y colocar la primera línea inline con el label
+    const palabras = sanitizarParaPDF(String(valor)).split(' ');
+    const anchoInline = maxWidth - labelW;
+    let lineActual = '';
+    let primeraLinea = true;
+    let yActual = y;
+
+    const flushLine = (txt, esInline) => {
+      const xPos = esInline ? margenX + labelW : margenX;
+      page.drawText(txt, { x:xPos, y:yActual, font, size, color:COLOR_NEGRO });
+      yActual -= LH;
+    };
+
+    for (const palabra of palabras) {
+      const prueba = lineActual ? lineActual + ' ' + palabra : palabra;
+      const anchoMax = primeraLinea ? anchoInline : maxWidth;
+      if (font.widthOfTextAtSize(prueba, size) > anchoMax && lineActual) {
+        flushLine(lineActual, primeraLinea);
+        primeraLinea = false;
+        lineActual = palabra;
+      } else {
+        lineActual = prueba;
+      }
+    }
+    if (lineActual) flushLine(lineActual, primeraLinea);
+    return yActual;
   };
 
   // Recuadro con texto (para batería / alerta ERI)
@@ -1432,11 +1459,17 @@ async function generarPDFResumen(controlId) {
   };
 
   // ══════════════════════════════════════════════
-  // TÍTULO PRINCIPAL
+  // TÍTULO PRINCIPAL — centrado, recuadrado de margen a margen
   // ══════════════════════════════════════════════
   const TITULO = 'CONTROL DE DISPOSITIVO DE ESTIMULACION CARDIACA';
-  page.drawText(TITULO, { x:margenX, y, font:fontBold, size:11, color:COLOR_NEGRO });
-  y -= 20;
+  const TITULO_SIZE = 12;
+  const tituloW = fontBold.widthOfTextAtSize(TITULO, TITULO_SIZE);
+  const tituloPadV = 6;
+  const tituloAltura = TITULO_SIZE + tituloPadV * 2;
+  const tituloX = margenX + (maxWidth - tituloW) / 2;
+  page.drawRectangle({ x:margenX, y:y - tituloPadV, width:maxWidth, height:tituloAltura, borderColor:COLOR_NEGRO, borderWidth:0.8 });
+  page.drawText(TITULO, { x:tituloX, y, font:fontBold, size:TITULO_SIZE, color:COLOR_NEGRO });
+  y -= tituloAltura + 10;
 
   // ══════════════════════════════════════════════
   // DATOS DEL PACIENTE
@@ -1448,7 +1481,9 @@ async function generarPDFResumen(controlId) {
   // Apellido y nombre: APELLIDO, Nombre
   const partes = pac.nombre.split(', ');
   const apellido = (partes[0] || '').toUpperCase();
-  const nombre   = partes[1] ? partes[1].charAt(0).toUpperCase() + partes[1].slice(1).toLowerCase() : '';
+  const nombre   = partes[1]
+    ? partes[1].split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+    : '';
   const nombreFormateado = apellido + (nombre ? ', ' + nombre : '');
   y = drawCampo(page, 'Apellido y nombre', nombreFormateado, y);
   y -= 2;
@@ -1507,13 +1542,17 @@ async function generarPDFResumen(controlId) {
   y = drawSeccion(page, 'PARÁMETROS TÉCNICOS', y);
   y -= 6;
 
-  // ─ Batería en recuadro ─
+  // ─ Batería — destacada en negrita, tamaño 10, label en mayúscula ─
   const vidaBat = fmtVidaBateria(ctrl);
   if (vidaBat && vidaBat !== '-') {
-    await checkPage(40);
-    const bateriaLineas = ['Batería: ' + vidaBat];
-    y = drawRecuadro(page, bateriaLineas, y, { bold: true, colorBorde: COLOR_GRIS });
-    y -= 10;
+    await checkPage(30);
+    y -= 4;
+    const batLabel = 'BATERIA: ';
+    const batValor = sanitizarParaPDF(vidaBat);
+    const batLabelW = fontBold.widthOfTextAtSize(batLabel, 10);
+    page.drawText(batLabel, { x:margenX, y, font:fontBold, size:10, color:COLOR_NEGRO });
+    page.drawText(batValor,  { x:margenX + batLabelW, y, font:fontBold, size:10, color:COLOR_NEGRO });
+    y -= LH + 4;
   }
 
   // ─ Alerta ERI ─
