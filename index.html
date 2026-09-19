@@ -5120,14 +5120,15 @@ async function openModalEditarProfesional(profId, targetId) {
   } catch(e) { console.warn('profesional_hospital:', e); }
 
   const hospCheckboxes = hospitales_lista.length > 0
-    ? '<div class="field"><label>Instituciones</label><div style="border:0.5px solid var(--mr-border);border-radius:8px;overflow:hidden;margin-top:4px;">'
+    ? '<div class="field"><label>Instituciones</label><table style="width:100%;border:0.5px solid var(--mr-border);border-radius:8px;overflow:hidden;margin-top:4px;border-collapse:collapse;background:#fff;">'
       + hospitales_lista.map(function(h,i){
-          return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;background:#fff;'+(i>0?'border-top:0.5px solid var(--mr-border)':'')+'" onclick="this.querySelector(\'input\').click();event.stopPropagation();">'
-            + '<input type="checkbox" class="epr-hosp-cb" value="'+h.id+'" '+(hospAsignados.includes(h.id)?'checked':'')+' style="cursor:pointer;flex-shrink:0;" onclick="event.stopPropagation();">'
-            + '<div style="cursor:pointer;"><div style="font-size:13px;font-weight:500;color:#1F2937;">'+h.nombre+'</div>'+(h.ciudad?'<div style="font-size:11px;color:var(--mr-text-muted);">'+h.ciudad+'</div>':'')+'</div>'
-            + '</div>';
+          var cbId = 'epr-cb-'+h.id;
+          return '<tr style="'+(i>0?'border-top:0.5px solid var(--mr-border)':'')+'">'
+            + '<td style="width:32px;padding:8px 0 8px 10px;vertical-align:middle;"><input type="checkbox" id="'+cbId+'" class="epr-hosp-cb" value="'+h.id+'" '+(hospAsignados.includes(h.id)?'checked':'')+' style="width:16px;height:16px;cursor:pointer;"></td>'
+            + '<td style="padding:8px 10px;vertical-align:middle;"><span style="font-size:13px;font-weight:500;color:#1F2937;display:block;">'+h.nombre+'</span>'+(h.ciudad?'<span style="font-size:11px;color:#6B8499;display:block;">'+h.ciudad+'</span>':'')+'</td>'
+            + '</tr>';
         }).join('')
-      + '</div></div>'
+      + '</table></div>'
     : '';
 
   const overlay = document.getElementById('modal-overlay');
@@ -5182,14 +5183,15 @@ function openModalProfesional(onSaved) {
   const content = document.getElementById('modal-content');
   overlay.classList.add('show');
   const hospCheckboxesMPR = hospitales_lista.length > 0
-    ? '<div class="field"><label>Instituciones</label><div style="border:0.5px solid var(--mr-border);border-radius:8px;overflow:hidden;margin-top:4px;">'
+    ? '<div class="field"><label>Instituciones</label><table style="width:100%;border:0.5px solid var(--mr-border);border-radius:8px;overflow:hidden;margin-top:4px;border-collapse:collapse;background:#fff;">'
       + hospitales_lista.map(function(h,i){
-          return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;background:#fff;'+(i>0?'border-top:0.5px solid var(--mr-border)':'')+'" onclick="this.querySelector(\'input\').click();event.stopPropagation();">'
-            + '<input type="checkbox" class="mpr-hosp-cb" value="'+h.id+'" style="cursor:pointer;flex-shrink:0;" onclick="event.stopPropagation();">'
-            + '<div style="cursor:pointer;"><div style="font-size:13px;font-weight:500;color:#1F2937;">'+h.nombre+'</div>'+(h.ciudad?'<div style="font-size:11px;color:var(--mr-text-muted);">'+h.ciudad+'</div>':'')+'</div>'
-            + '</div>';
+          var cbId = 'mpr-cb-'+h.id;
+          return '<tr style="'+(i>0?'border-top:0.5px solid var(--mr-border)':'')+'">'
+            + '<td style="width:32px;padding:8px 0 8px 10px;vertical-align:middle;"><input type="checkbox" id="'+cbId+'" class="mpr-hosp-cb" value="'+h.id+'" style="width:16px;height:16px;cursor:pointer;"></td>'
+            + '<td style="padding:8px 10px;vertical-align:middle;"><span style="font-size:13px;font-weight:500;color:#1F2937;display:block;">'+h.nombre+'</span>'+(h.ciudad?'<span style="font-size:11px;color:#6B8499;display:block;">'+h.ciudad+'</span>':'')+'</td>'
+            + '</tr>';
         }).join('')
-      + '</div></div>'
+      + '</table></div>'
     : '';
   content.innerHTML = `
     <h3>Nuevo usuario</h3>
