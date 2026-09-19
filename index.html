@@ -1336,7 +1336,7 @@ async function generarPDFResumen(controlId) {
   // ── Constantes de layout ──
   const W_pt = 595, H_pt = 842;
   const margenX = 57;
-  const yInicio = H_pt - 110; // ~39mm desde arriba (espacio para membrete)
+  const yInicio = H_pt - 105; // ~37mm desde arriba (espacio para membrete)
   const yFin    = 60;         // ~21mm desde abajo  (espacio para membrete inferior)
   const LH      = 13;         // interlineado normal
   const COLOR_NEGRO  = rgb(0.07, 0.07, 0.07);
@@ -1644,7 +1644,7 @@ async function generarPDFResumen(controlId) {
     y = drawCampo(page, 'Consideraciones', ctrl.indicaciones, y);
     y -= 2;
   }
-  y -= 6;
+  y -= 3;
 
   // ══════════════════════════════════════════════
   // FIRMA (imagen, sin nombre ni matrícula)
