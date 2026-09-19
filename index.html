@@ -4625,28 +4625,19 @@ async function renderHospitales() {
   const filas = hospitales_lista.map(h => {
     const extra = h.ciudad ? `<span style="font-size:11px; color:var(--mr-text-muted); margin-left:8px;">${h.ciudad}</span>` : '';
     const profAsignados = asignaciones[h.id] || [];
-    const checkboxes = profesionales.map(p => {
-      const checked = profAsignados.includes(p.id) ? 'checked' : '';
-      return `<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 0;cursor:pointer;">
-        <input type="checkbox" ${checked} onchange="toggleProfHospital('${p.id}','${h.id}',this.checked)" style="cursor:pointer;">
-        ${p.nombre}
-      </label>`;
-    }).join('');
-    return `<div style="border:0.5px solid var(--mr-border); border-radius:8px; margin-bottom:8px; background:#fff; overflow:hidden;">
-      <div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px;">
-        <div><span style="font-weight:600; font-size:13px;">${h.nombre}</span>${extra}</div>
-        <div style="display:flex; gap:6px; align-items:center;">
-          <button class="btn-sm" onclick="toggleProfSection('${h.id}')" title="Profesionales" style="font-size:11px; padding:3px 8px;">
-            👤 ${profAsignados.length}
-          </button>
-          <button class="btn-sm" onclick="editarHospital('${h.id}')" title="Editar">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          </button>
-        </div>
+    const profNombres = profAsignados.map(pid => profesionales.find(p=>p.id===pid)?.nombre).filter(Boolean);
+    const profTag = profNombres.length > 0
+      ? `<span style="font-size:11px; color:var(--mr-text-muted);">${profNombres.length} profesional${profNombres.length>1?'es':''}</span>`
+      : `<span style="font-size:11px; color:var(--mr-coral);">Sin profesionales</span>`;
+    return `<div style="display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:0.5px solid var(--mr-border); border-radius:8px; margin-bottom:6px; background:#fff;">
+      <div>
+        <span style="font-weight:600; font-size:13px;">${h.nombre}</span>${extra}
+        <div style="margin-top:2px;">${profTag}</div>
       </div>
-      <div id="prof-section-${h.id}" style="display:none; border-top:0.5px solid var(--mr-border); padding:8px 12px; background:var(--mr-bg);">
-        <div style="font-size:11px; font-weight:600; color:var(--mr-text-muted); margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px;">Profesionales asignados</div>
-        ${checkboxes || '<p style="font-size:12px;color:var(--mr-text-muted);">Sin profesionales registrados.</p>'}
+      <div style="display:flex; gap:6px;">
+        <button class="btn-sm" onclick="editarHospital('${h.id}')" title="Editar">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
       </div>
     </div>`;
   }).join('');
@@ -5116,10 +5107,26 @@ async function renderListaProfesionalesEn(targetId) {
   });
 }
 
-function openModalEditarProfesional(profId, targetId) {
+async function openModalEditarProfesional(profId, targetId) {
   const prof = profesionales.find(p=>p.id===profId);
   if (!prof) return;
   const partes = prof.nombre.split(', ');
+
+  // Cargar hospitales asignados a este profesional
+  let hospAsignados = [];
+  try {
+    const rows = await sbGet('profesional_hospital?profesional_id=eq.'+profId);
+    hospAsignados = (rows||[]).map(r => String(r.hospital_id));
+  } catch(e) { console.warn('profesional_hospital:', e); }
+
+  const hospCheckboxes = hospitales_lista.length > 0
+    ? `<div class="field"><label>Instituciones</label><div style="display:flex;flex-direction:column;gap:4px;margin-top:4px;">
+        ${hospitales_lista.map(h => `<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:normal;cursor:pointer;">
+          <input type="checkbox" class="epr-hosp-cb" value="${h.id}" ${hospAsignados.includes(h.id)?'checked':''} style="cursor:pointer;">
+          ${h.nombre}${h.ciudad ? ' · <span style="color:var(--mr-text-muted);font-size:12px;">'+h.ciudad+'</span>' : ''}
+        </label>`).join('')}
+      </div></div>` : '';
+
   const overlay = document.getElementById('modal-overlay');
   const content = document.getElementById('modal-content');
   overlay.classList.add('show');
@@ -5132,6 +5139,7 @@ function openModalEditarProfesional(profId, targetId) {
     <div class="field"><label>DNI</label><input type="text" id="epr-dni" value="${prof.dni||''}"></div>
     <div id="epr-msg" class="msg err" style="display:none;"></div>
     <div class="field"><label>Rol</label><select id="epr-rol"><option value="admin" ${prof.rol==='admin'?'selected':''}>Administrador</option><option value="medico" ${(!prof.rol||prof.rol==='medico')?'selected':''}>Médico/Técnico</option><option value="recepcionista" ${prof.rol==='recepcionista'?'selected':''}>Recepcionista</option><option value="investigador" ${prof.rol==='investigador'?'selected':''}>Investigador</option></select></div>
+    ${hospCheckboxes}
     <div style="display:flex; gap:8px;">
       <button id="epr-guardar" class="btn-primary">Guardar usuario</button>
       <button id="epr-cancelar" class="btn-secondary">Cancelar</button>
@@ -5147,12 +5155,20 @@ function openModalEditarProfesional(profId, targetId) {
     if (!apellido || !nombre) {
       msg.style.display = 'block';
       msg.innerHTML = `Completá Apellido y Nombre.`;
+      _btn_epr_guardar.disabled=false; _btn_epr_guardar.textContent='Guardar usuario';
       return;
     }
     const nombreEPR = `${apellido}, ${nombre}`;
-    prof.nombre = nombreEPR;
     prof.nombre = nombreEPR; prof.dni = dni; prof.rol = document.getElementById('epr-rol').value;
     actualizarProfesional_(prof.id, nombreEPR, dni, document.getElementById('epr-rol').value).catch(e=>console.error(e));
+    // Guardar asignaciones de hospitales
+    const seleccionados = [...document.querySelectorAll('.epr-hosp-cb:checked')].map(cb => cb.value);
+    const agregar = seleccionados.filter(hid => !hospAsignados.includes(hid));
+    const quitar  = hospAsignados.filter(hid => !seleccionados.includes(hid));
+    await Promise.all([
+      ...agregar.map(hid => sbInsert('profesional_hospital', { profesional_id: profId, hospital_id: hid })),
+      ...quitar.map(hid  => sbDelete('profesional_hospital', 'profesional_id=eq.'+profId+'&hospital_id=eq.'+hid))
+    ]);
     closeModal();
     renderListaProfesionalesEn(targetId);
   });
@@ -5162,6 +5178,13 @@ function openModalProfesional(onSaved) {
   const overlay = document.getElementById('modal-overlay');
   const content = document.getElementById('modal-content');
   overlay.classList.add('show');
+  const hospCheckboxesMPR = hospitales_lista.length > 0
+    ? `<div class="field"><label>Instituciones</label><div style="display:flex;flex-direction:column;gap:4px;margin-top:4px;">
+        ${hospitales_lista.map(h => `<label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:normal;cursor:pointer;">
+          <input type="checkbox" class="mpr-hosp-cb" value="${h.id}" style="cursor:pointer;">
+          ${h.nombre}${h.ciudad ? ' · <span style="color:var(--mr-text-muted);font-size:12px;">'+h.ciudad+'</span>' : ''}
+        </label>`).join('')}
+      </div></div>` : '';
   content.innerHTML = `
     <h3>Nuevo usuario</h3>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
@@ -5171,6 +5194,7 @@ function openModalProfesional(onSaved) {
     <div class="field"><label>DNI</label><input type="text" id="mpr-dni"></div>
     <div id="mpr-msg" class="msg err" style="display:none;"></div>
     <div class="field"><label>Rol</label><select id="mpr-rol"><option value="admin">Administrador</option><option value="medico" selected>Médico/Técnico</option><option value="recepcionista">Recepcionista</option><option value="investigador">Investigador</option></select></div>
+    ${hospCheckboxesMPR}
     <div style="display:flex; gap:8px;">
       <button id="mpr-guardar" class="btn-primary">Guardar usuario</button>
       <button id="mpr-cancelar" class="btn-secondary">Cancelar</button>
@@ -5190,6 +5214,9 @@ function openModalProfesional(onSaved) {
     const nombreMPR = `${apellido}, ${nombre}`;
     const rolMPR = document.getElementById('mpr-rol').value;
     const _rMPR = await guardarNuevoProfesional_(nombreMPR, dni, rolMPR);
+    // Guardar asignaciones de hospitales
+    const seleccionadosMPR = [...document.querySelectorAll('.mpr-hosp-cb:checked')].map(cb => cb.value);
+    await Promise.all(seleccionadosMPR.map(hid => sbInsert('profesional_hospital', { profesional_id: _rMPR.id, hospital_id: hid })));
     const nuevo = {id:_rMPR.id, nombre:nombreMPR, dni, rol:rolMPR};
     closeModal();
     if (onSaved) onSaved(nuevo);
