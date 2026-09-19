@@ -6163,6 +6163,7 @@ function renderPacienteView() {
     <div style="margin-bottom:1rem;">
       <div style="font-size:13px; color:var(--mr-text-muted); margin-bottom:2px;">Hola,</div>
       <div style="font-size:18px; font-weight:700;">${pacienteActivo.nombre.split(', ')[1]} ${pacienteActivo.nombre.split(', ')[0]}</div>
+      ${hospitalPac ? `<div style="font-size:12px; color:var(--mr-text-muted); margin-top:3px;">${hospitalPac.nombre}${hospitalPac.servicio ? ' · ' + hospitalPac.servicio : ''}</div>` : ''}
     </div>
 
     <div style="background:${alertaBg}; color:${alertaText}; border-radius:10px; padding:1rem; margin-bottom:1rem;">
