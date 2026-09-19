@@ -1547,7 +1547,6 @@ async function generarPDFResumen(controlId) {
   const vidaBat = fmtVidaBateria(ctrl);
   if (vidaBat && vidaBat !== '-') {
     await checkPage(30);
-    y -= 4;
     const batLabel = 'BATERIA: ';
     const batValor = sanitizarParaPDF(vidaBat);
     const batLabelW = fontBold.widthOfTextAtSize(batLabel, 10);
