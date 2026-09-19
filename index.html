@@ -809,6 +809,11 @@ async function actualizarProfesional_(profesionalId, nombre, dni, rol) {
   if (idx >= 0) Object.assign(profesionales[idx],{ nombre, dni, ...(rol ? {rol} : {}) });
 }
 async function eliminarProfesional_(id) {
+  // Eliminar dependencias en agenda_profesional primero
+  await sbDelete('agenda_profesional', 'profesional_id=eq.'+id);
+  // Eliminar dependencias en profesional_hospital
+  await sbDelete('profesional_hospital', 'profesional_id=eq.'+id);
+  // Ahora sí eliminar el profesional
   const result = await sbDeleteDebug('profesionales','id=eq.'+id);
   if (result.error) {
     console.error('Error eliminando profesional:', result.status, result.body);
