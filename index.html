@@ -3307,19 +3307,25 @@ async function renderForm() {
         ${retraso > 0 ? `<div style="font-size:12px; color:var(--mr-amber-text); margin-top:4px;">Retraso respecto a lo programado: ${retraso} mes(es)</div>` : ''}
         <div style="margin-top:6px;"><span class="${riesgo.alto ? 'risk-alto' : 'risk-bajo'}" style="font-size:12px; padding:3px 10px; border-radius:12px;">${riesgo.alto ? 'Alto riesgo' : 'Bajo riesgo'}</span></div>
       </div>
-      <div style="display:flex; gap:8px;">
+      <div style="display:flex; gap:8px; margin-bottom:8px;">
         <button id="modal-ctrl-hc" class="btn-secondary" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px;">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
           Ver resumen HC
         </button>
-        <button id="modal-ctrl-pac" class="btn-primary" style="flex:1;">Ir a Pacientes</button>
-       </div>
-       <div style="margin-top:8px;">
-         <button id="modal-ctrl-nuevo" class="btn-secondary" style="width:100%; display:flex; align-items:center; justify-content:center; gap:6px;">
-           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-           Nuevo control para este paciente
-         </button>
-       </div>
+        <button id="modal-ctrl-pdf" class="btn-secondary" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Descargar PDF
+        </button>
+      </div>
+      <div style="margin-bottom:8px;">
+        <button id="modal-ctrl-pac" class="btn-primary" style="width:100%;">Ir a Pacientes</button>
+      </div>
+      <div>
+        <button id="modal-ctrl-nuevo" class="btn-secondary" style="width:100%; display:flex; align-items:center; justify-content:center; gap:6px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Nuevo control para este paciente
+        </button>
+      </div>
      \`;
     `;
     document.getElementById('modal-ctrl-hc').addEventListener('click', () => {
@@ -3327,6 +3333,9 @@ async function renderForm() {
       closeModal();
       _submitRunning = false;
     openModalResumenControl(controlGuardado.id, () => showView('pac'));
+    });
+    document.getElementById('modal-ctrl-pdf').addEventListener('click', () => {
+      generarPDFResumen(controlGuardado.id);
     });
     document.getElementById('modal-ctrl-pac').addEventListener('click', () => {
       content.style.maxWidth = '';
