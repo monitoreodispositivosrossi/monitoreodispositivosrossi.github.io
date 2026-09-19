@@ -1910,12 +1910,7 @@ async function subirArchivoStorage(bucket, path, file) {
     headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': file.type || 'application/octet-stream', 'x-upsert': 'true' },
     body: file
   });
-  if (!r.ok) {
-    const errText = await r.text();
-    console.error('Storage error:', r.status, errText);
-    alert('Error al subir archivo (bucket: ' + bucket + ')\nHTTP ' + r.status + ': ' + errText);
-    return null;
-  }
+  if (!r.ok) { console.error('Storage error:', r.status, await r.text()); return null; }
   return `${SUPABASE_URL}/storage/v1/object/public/${bucket}/${path}`;
 }
 
@@ -4615,6 +4610,7 @@ function nuevoHospital() {
     document.getElementById('mhosp-membrete-actual').textContent = 'Sin membrete';
     document.getElementById('mhosp-membrete-file').value = '';
     document.getElementById('mhosp-membrete-msg').style.display = 'none';
+    document.getElementById('mhosp-membrete-eliminar').style.display = 'none';
     modal.style.display = 'flex';
     return;
   }
@@ -4635,8 +4631,9 @@ function nuevoHospital() {
         <div style="display:flex;gap:8px;align-items:center;">
           <input type="file" id="mhosp-membrete-file" accept=".pdf" style="font-size:12px;flex:1;">
           <button id="mhosp-membrete-subir" class="btn-secondary" style="font-size:12px;white-space:nowrap;" onclick="subirMembreteHospital()">Subir PDF</button>
+          <button id="mhosp-membrete-eliminar" class="btn-secondary" style="font-size:12px;white-space:nowrap;color:#e53e3e;border-color:#e53e3e;display:none;" onclick="eliminarMembreteHospital()">Eliminar</button>
         </div>
-        <div id="mhosp-membrete-msg" style="font-size:11px;color:var(--mr-teal);margin-top:4px;display:none;">✓ Membrete actualizado</div>
+        <div id="mhosp-membrete-msg" style="font-size:11px;color:var(--mr-teal);margin-top:4px;display:none;"></div>
         <div style="font-size:11px;color:var(--mr-text-muted);margin-top:4px;">PDF de hoja membretada (encabezado y pie de página). El texto se superpone sobre cada página.</div>
       </div>
       <div id="mhosp-msg" class="msg err" style="display:none;margin-bottom:0.5rem;"></div>
@@ -4659,11 +4656,14 @@ function editarHospital(id) {
     document.getElementById('mhosp-ciudad').value = h.ciudad || '';
     document.getElementById('mhosp-title').textContent = 'Editar hospital';
     const memActual = document.getElementById('mhosp-membrete-actual');
+    const btnElim = document.getElementById('mhosp-membrete-eliminar');
     if (memActual) {
       if (h.membreteUrl) {
         memActual.innerHTML = `<span style="color:var(--mr-teal-text);">✓ Membrete cargado</span> · <a href="${h.membreteUrl}" target="_blank" style="color:var(--mr-primary);">Ver PDF</a>`;
+        if (btnElim) btnElim.style.display = '';
       } else {
         memActual.textContent = 'Sin membrete';
+        if (btnElim) btnElim.style.display = 'none';
       }
     }
   }, 50);
@@ -4708,13 +4708,32 @@ async function subirMembreteHospital() {
     const h = hospitales_lista.find(x => x.id === id);
     if (h) h.membreteUrl = url;
     if (hospitalActual?.id === id) hospitalActual.membreteUrl = url;
-    document.getElementById('mhosp-membrete-msg').style.display = 'block';
     const memActual = document.getElementById('mhosp-membrete-actual');
     if (memActual) memActual.innerHTML = `<span style="color:var(--mr-teal-text);">✓ Membrete cargado</span> · <a href="${url}" target="_blank" style="color:var(--mr-primary);">Ver PDF</a>`;
+    const btnElim = document.getElementById('mhosp-membrete-eliminar');
+    if (btnElim) btnElim.style.display = '';
+    const msg = document.getElementById('mhosp-membrete-msg');
+    msg.textContent = '✓ Membrete actualizado'; msg.style.display = 'block';
   } else {
     alert('Error al subir el membrete.');
   }
   btn.disabled = false; btn.textContent = 'Subir PDF';
+}
+
+async function eliminarMembreteHospital() {
+  const id = document.getElementById('mhosp-id').value.trim();
+  if (!id) return;
+  if (!confirm('¿Eliminar el membrete de esta institución?')) return;
+  const btn = document.getElementById('mhosp-membrete-eliminar');
+  btn.disabled = true; btn.textContent = 'Eliminando...';
+  await sbUpdate('hospitales', 'id=eq.'+id, { membrete_url: null });
+  const h = hospitales_lista.find(x => x.id === id);
+  if (h) h.membreteUrl = '';
+  if (hospitalActual?.id === id) hospitalActual.membreteUrl = '';
+  document.getElementById('mhosp-membrete-actual').textContent = 'Sin membrete';
+  btn.style.display = 'none'; btn.disabled = false; btn.textContent = 'Eliminar';
+  const msg = document.getElementById('mhosp-membrete-msg');
+  msg.textContent = '✓ Membrete eliminado'; msg.style.display = 'block';
 }
 
 function toggleProfSection(hospId) {
@@ -5107,6 +5126,20 @@ async function renderListaProfesionalesEn(targetId) {
   });
 }
 
+function attachEliminarFirmaListener(profId, prof) {
+  const btn = document.getElementById('epr-firma-eliminar');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    if (!confirm('¿Eliminar la firma de este profesional?')) return;
+    btn.disabled = true; btn.textContent = 'Eliminando...';
+    await sbUpdate('profesionales', 'id=eq.'+profId, { firma_url: null });
+    prof.firmaUrl = '';
+    document.getElementById('epr-firma-preview').innerHTML = '<span style="font-size:12px;color:var(--mr-text-muted);">Sin firma</span>';
+    const msg = document.getElementById('epr-firma-msg');
+    msg.textContent = '✓ Firma eliminada'; msg.style.display = 'block';
+  });
+}
+
 async function openModalEditarProfesional(profId, targetId) {
   const prof = profesionales.find(p=>p.id===profId);
   if (!prof) return;
@@ -5145,12 +5178,16 @@ async function openModalEditarProfesional(profId, targetId) {
     <div class="field"><label>Rol</label><select id="epr-rol"><option value="admin" ${prof.rol==='admin'?'selected':''}>Administrador</option><option value="medico" ${(!prof.rol||prof.rol==='medico')?'selected':''}>Médico/Técnico</option><option value="recepcionista" ${prof.rol==='recepcionista'?'selected':''}>Recepcionista</option><option value="investigador" ${prof.rol==='investigador'?'selected':''}>Investigador</option></select></div>
     ${hospCheckboxes}
     <div class="field"><label>Firma</label>
-      <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
-        ${prof.firmaUrl ? `<img src="${prof.firmaUrl}" style="height:36px;border:0.5px solid var(--mr-border);border-radius:4px;background:#f5f5f5;padding:2px;">` : '<span style="font-size:12px;color:var(--mr-text-muted);">Sin firma</span>'}
+      <div id="epr-firma-preview" style="margin-top:4px;margin-bottom:6px;">
+        ${prof.firmaUrl
+          ? `<div style="display:flex;align-items:center;gap:8px;"><img src="${prof.firmaUrl}" style="height:36px;border:0.5px solid var(--mr-border);border-radius:4px;background:#f5f5f5;padding:2px;"><button id="epr-firma-eliminar" class="btn-secondary" style="font-size:12px;color:#e53e3e;border-color:#e53e3e;">Eliminar firma</button></div>`
+          : '<span style="font-size:12px;color:var(--mr-text-muted);">Sin firma</span>'}
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
         <input type="file" id="epr-firma-file" accept=".png" style="font-size:12px;flex:1;">
         <button id="epr-firma-subir" class="btn-secondary" style="font-size:12px;white-space:nowrap;">Subir firma</button>
       </div>
-      <div id="epr-firma-msg" style="font-size:11px;color:var(--mr-teal);margin-top:4px;display:none;">✓ Firma actualizada</div>
+      <div id="epr-firma-msg" style="font-size:11px;color:var(--mr-teal);margin-top:4px;display:none;"></div>
     </div>
     <div style="display:flex; gap:8px;">
       <button id="epr-guardar" class="btn-primary">Guardar usuario</button>
@@ -5167,10 +5204,14 @@ async function openModalEditarProfesional(profId, targetId) {
     if (url) {
       await sbUpdate('profesionales', 'id=eq.'+profId, { firma_url: url });
       prof.firmaUrl = url;
-      document.getElementById('epr-firma-msg').style.display = 'block';
+      document.getElementById('epr-firma-preview').innerHTML = `<div style="display:flex;align-items:center;gap:8px;"><img src="${url}" style="height:36px;border:0.5px solid var(--mr-border);border-radius:4px;background:#f5f5f5;padding:2px;"><button id="epr-firma-eliminar" class="btn-secondary" style="font-size:12px;color:#e53e3e;border-color:#e53e3e;">Eliminar firma</button></div>`;
+      attachEliminarFirmaListener(profId, prof);
+      const msg = document.getElementById('epr-firma-msg');
+      msg.textContent = '✓ Firma actualizada'; msg.style.display = 'block';
     } else { alert('Error al subir la firma.'); }
     btn.disabled = false; btn.textContent = 'Subir firma';
   });
+  if (prof.firmaUrl) attachEliminarFirmaListener(profId, prof);
   document.getElementById('epr-guardar').addEventListener('click', async () => {
     const _btn_epr_guardar = document.getElementById('epr-guardar'); _btn_epr_guardar.disabled=true; _btn_epr_guardar.textContent='Guardando...';
     const apellido = formatearApellido(document.getElementById('epr-apellido').value.trim());
