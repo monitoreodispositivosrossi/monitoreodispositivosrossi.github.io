@@ -243,6 +243,12 @@
       </div>
     </div>
     <div id="header-user" style="display:none; align-items:center; gap:8px;">
+      <!-- Selector de hospital para admin (visible solo con múltiples hospitales) -->
+      <div id="hdr-hospital-selector" style="display:none; align-items:center; gap:6px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <select id="hdr-hospital-select" style="font-size:12px; padding:3px 8px; border:1px solid rgba(255,255,255,0.3); border-radius:8px; background:rgba(255,255,255,0.15); color:#fff; cursor:pointer; max-width:180px;">
+        </select>
+      </div>
       <div class="user-pill" style="display:flex; align-items:center; gap:8px;">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         <span id="user-pill-text"></span>
@@ -268,6 +274,12 @@
         <input type="text" id="login-dni" placeholder="Ej: 28123456" style="text-align:center; font-size:16px; letter-spacing:2px; max-width:220px; margin:0 auto; display:block;">
       </div>
       <div id="login-msg" class="msg err" style="display:none; margin-bottom:0.75rem;"></div>
+      <!-- Selector de hospital (aparece si el profesional tiene más de uno) -->
+      <div id="login-hospital-selector" style="display:none; margin-bottom:1rem;">
+        <label style="display:block; margin-bottom:6px; font-size:13px; color:var(--mr-text-muted);">Seleccioná tu institución</label>
+        <select id="login-hospital-select" style="width:100%; font-size:14px; padding:8px 10px; border:1.5px solid var(--mr-border); border-radius:var(--border-radius); background:#fff; color:var(--mr-text);">
+        </select>
+      </div>
       <button id="btn-login" class="btn-primary" style="width:100%;">Ingresar</button>
       <input type="hidden" id="role-select" value="personal">
     </div>
@@ -445,10 +457,15 @@ function mapPac(p) {
     hospitalId: String(p.hospital_id||'')
   };
 }
-// Filtra pacientes según hospital activo (si hay multi-hospital activo)
+// Filtra pacientes según hospital activo
 function getPacientesHospital() {
   if (!hospitalActual) return pacientes;
   return pacientes.filter(p => !p.hospitalId || p.hospitalId === hospitalActual.id);
+}
+// Filtra turnos según hospital activo
+function getTurnosHospital() {
+  if (!hospitalActual) return turnosReservados;
+  return turnosReservados.filter(t => !t.hospitalId || t.hospitalId === hospitalActual.id);
 }
 
 function mapDisp(d) {
@@ -464,7 +481,8 @@ function mapDisp(d) {
     marca: String(d.marca||''), modelo: String(d.modelo||''), serie: String(d.serie||''),
     subtipo: String(d.subtipo||''), fechaImplante: parseFechaSB(d.fecha_implante),
     motivoImplante: String(d.motivo_implante||''),
-    activo: d.activo !== false, fechaRecambio: parseFechaSB(d.fecha_recambio)
+    activo: d.activo !== false, fechaRecambio: parseFechaSB(d.fecha_recambio),
+    hospitalId: String(d.hospital_id||'')
   };
 }
 function mapCtrl(c) {
@@ -485,7 +503,8 @@ function mapTurno(t) {
   return {
     pacienteId: String(t.paciente_id||''), fecha: parseFechaSB(t.fecha),
     hora: String(t.hora||''), controlId: String(t.control_id||''),
-    profesionalId: String(t.profesional_id||''), origen: String(t.origen||'presencial')
+    profesionalId: String(t.profesional_id||''), origen: String(t.origen||'presencial'),
+    hospitalId: String(t.hospital_id||'')
   };
 }
 function mapAccion(a) {
@@ -500,13 +519,9 @@ async function cargarDataset() {
   ]);
   profesionales = (pr||[]).map(p => ({ id:String(p.id||''), nombre:String(p.nombre||''), dni:String(p.dni||''), rol:String(p.rol||'medico'), firmaUrl:String(p.firma_url||'') }));
   hospitales_lista = (hosp||[]).map(h => ({ id:String(h.id||''), nombre:String(h.nombre||''), codigo:String(h.codigo||'') }));
-  // Establecer hospital actual del profesional logueado (si no está seteado)
-  if (!hospitalActual && profesionalActivo) {
-    const profId = String(profesionalActivo.id);
-    // Por ahora: el profesional pertenece a un hospital según sus pacientes o se toma el primero
-    if (hospitales_lista.length > 0) {
-      hospitalActual = hospitales_lista[0]; // Fase 1: un solo hospital
-    }
+  // Si hay un solo hospital, setearlo directamente (caso HIGA Fase 1)
+  if (!hospitalActual && hospitales_lista.length === 1) {
+    hospitalActual = hospitales_lista[0];
   }
   pacientes     = (pa||[]).map(mapPac);
   dispositivos  = (di||[]).map(mapDisp);
@@ -611,7 +626,8 @@ async function guardarNuevoDispositivo_(pacienteId, datos, esRecambio) {
   const row = { id, paciente_id:pacienteId, tipo:datos.tipo, marca:datos.marca,
     modelo:datos.modelo||'', serie:datos.serie||'', subtipo:datos.subtipo||'',
     fecha_implante:datos.fechaImplante||null, motivo_implante:datos.motivoImplante||'',
-    activo:true, fecha_recambio:null };
+    activo:true, fecha_recambio:null,
+    hospital_id: hospitalActual ? hospitalActual.id : null };
   await sbInsert('dispositivos', row);
   dispositivos.push(mapDisp(row));
   return { id };
@@ -732,10 +748,12 @@ async function reservarTurno_(datos) {
   }
   const row = { paciente_id:datos.pacienteId, fecha:fechaStr, hora:datos.hora,
     control_id:datos.controlId||null, profesional_id:datos.profesionalId||null,
-    origen:datos.origen||'presencial' };
+    origen:datos.origen||'presencial',
+    hospital_id: hospitalActual ? hospitalActual.id : null };
   await sbInsert('turnos_reservados', row);
   turnosReservados.push({ pacienteId:datos.pacienteId, fecha:fechaStr, hora:datos.hora,
-    controlId:datos.controlId||'', profesionalId:datos.profesionalId||'', origen:datos.origen||'presencial' });
+    controlId:datos.controlId||'', profesionalId:datos.profesionalId||'', origen:datos.origen||'presencial',
+    hospitalId: hospitalActual ? hospitalActual.id : '' });
   return { ok:true };
 }
 async function cancelarTurno_(pacienteId, fecha, hora) {
@@ -803,13 +821,19 @@ async function guardarConfig_(clave, valor) {
 }
 
 // ===================== FUNCIONES DE SESIÓN =====================
-function iniciarSesion(prof) {
+function iniciarSesion(prof, hospital) {
   profesionalLogueado = prof;
+  if (hospital) {
+    hospitalActual = hospital;
+    actualizarTextoInstitucional();
+  }
   document.getElementById('header-user').style.display = 'flex';
   document.getElementById('user-pill-text').textContent = prof.nombre.split(',')[0];
   document.getElementById('body-login').style.display = 'none';
   document.getElementById('body-personal').style.display = 'flex';
   aplicarPermisos();
+  // Mostrar selector de hospital en header solo para admin con múltiples hospitales
+  _actualizarSelectorHospitalHeader();
   // Navegar a la primera vista permitida según el rol
   const _rolInicio = profesionalLogueado?.rol || 'medico';
   const _modulosInicio = ROLES[_rolInicio]?.modulos || [];
@@ -817,14 +841,34 @@ function iniciarSesion(prof) {
   const _primeraVista = _mapaVistas[_modulosInicio[0]] || 'dash';
   showView(_primeraVista);
 }
+
+function _actualizarSelectorHospitalHeader() {
+  const sel = document.getElementById('hdr-hospital-selector');
+  const select = document.getElementById('hdr-hospital-select');
+  if (!sel || !select) return;
+  const esAdmin = profesionalLogueado?.rol === 'admin';
+  if (esAdmin && hospitales_lista.length > 1) {
+    select.innerHTML = hospitales_lista.map(h =>
+      `<option value="${h.id}" ${hospitalActual && h.id===hospitalActual.id ? 'selected':''}>${h.nombre}</option>`
+    ).join('');
+    sel.style.display = 'flex';
+  } else {
+    sel.style.display = 'none';
+  }
+}
 function cerrarSesion() {
   profesionalLogueado = null;
+  hospitalActual = hospitales_lista.length === 1 ? hospitales_lista[0] : null;
   document.getElementById('header-user').style.display = 'none';
   document.getElementById('body-personal').style.display = 'none';
   document.getElementById('body-paciente').style.display = 'none';
   document.getElementById('body-login').style.display = 'flex';
   document.getElementById('login-dni').value = '';
   document.getElementById('login-msg').style.display = 'none';
+  // Resetear selector de hospital
+  const hospSel = document.getElementById('login-hospital-selector');
+  if (hospSel) hospSel.style.display = 'none';
+  document.getElementById('btn-login').textContent = 'Ingresar';
 }
 
 // ===================== HELPERS DE DOMINIO =====================
@@ -1453,7 +1497,7 @@ function renderDash() {
   const proximos = [];       // proxControl >7 días, sin turno
 
   // Por cada paciente activo, tomar solo el control más reciente
-  const pacientesActivos = pacientes.filter(p => p.estado === 'Activo');
+  const pacientesActivos = getPacientesHospital().filter(p => p.estado === 'Activo');
   pacientesActivos.forEach(pac => {
     const controlesPac = controles.filter(c => c.pacienteId === pac.id);
     if (controlesPac.length === 0) return;
@@ -1502,7 +1546,7 @@ function renderDash() {
   let html = `
     <h3>Panel de control</h3>
     <div class="stat-grid">
-      <div class="stat-card"><div class="stat-label">Pacientes registrados</div><div class="stat-num">${pacientes.filter(p=>p.estado==='Activo').length}</div></div>
+      <div class="stat-card"><div class="stat-label">Pacientes registrados</div><div class="stat-num">${getPacientesHospital().filter(p=>p.estado==='Activo').length}</div></div>
       <div class="stat-card"><div class="stat-label">Controles registrados</div><div class="stat-num">${controles.length}</div></div>
       <div class="stat-card"><div class="stat-label">Recordatorios esta semana</div><div class="stat-num">${recordatorios.length}</div></div>
       <div class="stat-card"><div class="stat-label">Con turno asignado</div><div class="stat-num">${conTurno.length}</div></div>
@@ -2334,7 +2378,7 @@ async function renderTablaTurnos() {
   const tbody = document.getElementById('tabla-turnos');
   const _viewAgenda = document.getElementById('view-agenda');
   const _profIdAgenda = _viewAgenda?.dataset.profId || profesionalLogueado?.id;
-  const ordenados = turnosReservados.filter(t => !_profIdAgenda || t.profesionalId === _profIdAgenda).slice().sort((a,b) => {
+  const ordenados = getTurnosHospital().filter(t => !_profIdAgenda || t.profesionalId === _profIdAgenda).slice().sort((a,b) => {
     const fa = toInputDate(a.fecha) + ' ' + a.hora;
     const fb = toInputDate(b.fecha) + ' ' + b.hora;
     return fa.localeCompare(fb);
@@ -3123,7 +3167,7 @@ function openModalPacienteSimple(onSaved) {
       msg.innerHTML = 'Completá Apellido, Nombre y DNI.';
       return;
     }
-    const dniExistente = pacientes.find(p => p.dni === dni);
+    const dniExistente = getPacientesHospital().find(p => p.dni === dni);
     if (dniExistente) {
       msg.style.display = 'block';
       msg.innerHTML = `Ya existe un paciente con ese DNI: <strong>${dniExistente.nombre}</strong>.`;
@@ -3188,7 +3232,7 @@ function openModalPaciente(onSaved) {
         msg.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Completá Apellido, Nombre y DNI.`;
         return;
       }
-      const dniExistente = pacientes.find(p => p.dni === dni);
+      const dniExistente = getPacientesHospital().find(p => p.dni === dni);
       if (dniExistente) {
         msg.style.display = 'block';
         msg.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Ya existe un paciente con ese DNI: <strong>${dniExistente.nombre}</strong>.`;
@@ -3424,7 +3468,7 @@ function renderListaPacientes(filtro='', tiposActivos=[], marcasActivas=[]) {
   const lista = document.getElementById('lista-pac');
   let html = '';
   const normalizar = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/,/g,' ').replace(/\s+/g,' ').trim();
-  const pacientesFiltrados = pacientes.filter(p => {
+  const pacientesFiltrados = getPacientesHospital().filter(p => {
     const dispPac = dispositivos.find(d => d.pacienteId === p.id && d.activo);
     if (tiposActivos.length > 0 && (!dispPac || !tiposActivos.includes(dispPac.tipo))) return false;
     if (marcasActivas.length > 0 && (!dispPac || !marcasActivas.includes(dispPac.marca))) return false;
@@ -3439,6 +3483,22 @@ function renderListaPacientes(filtro='', tiposActivos=[], marcasActivas=[]) {
     if (!activo(a) && activo(b)) return 1;
     return a.nombre.localeCompare(b.nombre);
   });
+
+  // Cross-hospital: si no hay resultados y el filtro parece un DNI, buscar en otros hospitales
+  if (pacientesFiltrados.length === 0 && filtro && /^\d{6,10}$/.test(filtro.trim()) && profesionalLogueado?.rol === 'admin') {
+    const otrosPacs = pacientes.filter(p => p.dni.includes(filtro.trim()) && (!p.hospitalId || p.hospitalId !== (hospitalActual?.id||'')));
+    if (otrosPacs.length > 0) {
+      const nombresHosp = otrosPacs.map(p => {
+        const h = hospitales_lista.find(h => h.id === p.hospitalId);
+        return `<strong>${p.nombre}</strong> (${h ? h.nombre : 'otro hospital'})`;
+      }).join(', ');
+      lista.innerHTML = `<div style="background:#fff8e1; border:1px solid #ffe082; border-radius:8px; padding:1rem; font-size:13px; color:#795548;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px; margin-right:4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        DNI no encontrado en <strong>${hospitalActual?.nombre||'este hospital'}</strong>.<br>
+        Encontrado en: ${nombresHosp}.</div>`;
+      return;
+    }
+  }
 
   pacientesFiltrados.forEach(p => {
     const dispActivo = getDispositivoActivo(p.id);
@@ -4774,12 +4834,12 @@ function renderAdminDatos() {
   const container = document.getElementById('cfg-admin');
 
   // Pacientes sin controles
-  const pacientesSinControles = pacientes.filter(p =>
+  const pacientesSinControles = getPacientesHospital().filter(p =>
     !controles.some(c => c.pacienteId === p.id)
   );
 
   // Selector de paciente para eliminar control
-  const pacientesConControles = pacientes.filter(p =>
+  const pacientesConControles = getPacientesHospital().filter(p =>
     controles.some(c => c.pacienteId === p.id)
   );
 
@@ -5742,25 +5802,17 @@ document.getElementById('login-pac-dni').addEventListener('keydown', e => {
 
 document.getElementById('btn-logout-pac').addEventListener('click', cerrarSesionPaciente);
 
-document.getElementById('btn-login').addEventListener('click', () => {
+document.getElementById('btn-login').addEventListener('click', async () => {
   const rol = document.getElementById('role-select').value;
   const dni = document.getElementById('login-dni').value.trim();
   const msg = document.getElementById('login-msg');
+  const iconErr = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`;
 
   if (rol === 'paciente') {
-    // Bloquear acceso a profesionales desde la vista paciente
     const esProfesional = profesionales.find(p => p.dni === dni);
-    if (esProfesional) {
-      msg.style.display = 'block';
-      msg.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Este acceso es exclusivo para pacientes.`;
-      return;
-    }
+    if (esProfesional) { msg.style.display='block'; msg.innerHTML=iconErr+' Este acceso es exclusivo para pacientes.'; return; }
     const pac = pacientes.find(p => p.dni === dni);
-    if (!pac) {
-      msg.style.display = 'block';
-      msg.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> DNI no encontrado.`;
-      return;
-    }
+    if (!pac) { msg.style.display='block'; msg.innerHTML=iconErr+' DNI no encontrado.'; return; }
     msg.style.display = 'none';
     document.getElementById('body-login').style.display = 'none';
     document.getElementById('body-paciente').style.display = 'flex';
@@ -5771,15 +5823,62 @@ document.getElementById('btn-login').addEventListener('click', () => {
   const prof = profesionales.find(p => p.dni === dni);
   if (!prof) {
     msg.style.display = 'block';
-    msg.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> DNI no encontrado. Verificá el número ingresado.`;
+    msg.innerHTML = iconErr+' DNI no encontrado. Verificá el número ingresado.';
+    // Ocultar selector si estaba visible
+    document.getElementById('login-hospital-selector').style.display = 'none';
     return;
   }
   msg.style.display = 'none';
-  iniciarSesion(prof);
+
+  // Verificar hospitales del profesional
+  const hospSel = document.getElementById('login-hospital-selector');
+  const hospSelect = document.getElementById('login-hospital-select');
+
+  // Si el selector ya está visible → el profesional eligió hospital → ingresar
+  if (hospSel.style.display !== 'none') {
+    const hospId = hospSelect.value;
+    const hospital = hospitales_lista.find(h => h.id === hospId) || hospitalActual;
+    iniciarSesion(prof, hospital);
+    return;
+  }
+
+  // Consultar hospitales del profesional en profesional_hospital
+  let hospIds = [];
+  try {
+    const rows = await sbGet('profesional_hospital?profesional_id=eq.'+prof.id);
+    hospIds = (rows||[]).map(r => String(r.hospital_id));
+  } catch(e) { console.warn('profesional_hospital no disponible:', e); }
+
+  const hospDisponibles = hospIds.length > 0
+    ? hospitales_lista.filter(h => hospIds.includes(h.id))
+    : hospitales_lista; // fallback: todos
+
+  if (hospDisponibles.length <= 1) {
+    // Un solo hospital → entrar directo
+    const hospital = hospDisponibles[0] || hospitalActual;
+    iniciarSesion(prof, hospital);
+  } else {
+    // Más de un hospital → mostrar selector
+    hospSelect.innerHTML = hospDisponibles.map(h => `<option value="${h.id}">${h.nombre}</option>`).join('');
+    hospSel.style.display = 'block';
+    document.getElementById('btn-login').textContent = 'Continuar';
+  }
 });
 
 document.getElementById('login-dni').addEventListener('keydown', e => {
   if (e.key === 'Enter') document.getElementById('btn-login').click();
+});
+
+document.getElementById('hdr-hospital-select').addEventListener('change', function() {
+  const hospId = this.value;
+  const hosp = hospitales_lista.find(h => h.id === hospId);
+  if (hosp) {
+    hospitalActual = hosp;
+    actualizarTextoInstitucional();
+    // Recargar la vista actual para reflejar el cambio de hospital
+    const activeBtn = document.querySelector('.nav-btn.active');
+    if (activeBtn) showView(activeBtn.dataset.view);
+  }
 });
 
 document.getElementById('btn-logout').addEventListener('click', cerrarSesion);
