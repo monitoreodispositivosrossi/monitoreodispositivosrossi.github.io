@@ -266,8 +266,7 @@
           <img src="icon-192.png" alt="MODI ROSSI" style="width:100%; height:100%; object-fit:cover; border-radius:8px;">
         </div>
         <div style="font-weight:700; font-size:18px; color:var(--mr-primary);">MODI ROSSI</div>
-        <div style="font-size:12px; color:var(--mr-text-muted);" id="login-servicio">Monitoreo de Dispositivos · Servicio de Cardiología</div>
-        <div style="font-size:12px; color:var(--mr-text-muted);" id="login-institucion">HIGA Prof. Dr. Rodolfo Rossi</div>
+        <div style="font-size:12px; color:var(--mr-text-muted);" id="login-servicio">Monitoreo de Dispositivos</div>
       </div>
       <div class="field" style="text-align:center;">
         <label style="display:block; margin-bottom:6px;">Ingresá tu DNI para continuar</label>
@@ -334,8 +333,7 @@
               <img src="icon-192.png" alt="MODI ROSSI" style="width:100%; height:100%; object-fit:cover; border-radius:8px;">
             </div>
             <div style="font-weight:700; font-size:18px; color:var(--mr-primary);">MODI ROSSI</div>
-            <div style="font-size:12px; color:var(--mr-text-muted);" id="loginpac-servicio">Monitoreo de Dispositivos · Servicio de Cardiología</div>
-            <div style="font-size:12px; color:var(--mr-text-muted);" id="loginpac-institucion">HIGA Prof. Dr. Rodolfo Rossi</div>
+            <div style="font-size:12px; color:var(--mr-text-muted);" id="loginpac-servicio">Monitoreo de Dispositivos</div>
           </div>
           <div class="field" style="text-align:center;">
             <label style="display:block; margin-bottom:6px;">Ingresá tu DNI para ver tu información</label>
@@ -921,10 +919,8 @@ function actualizarTextoInstitucional() {
   const ids = {
     'hdr-servicio': `Monitoreo de Dispositivos · ${nombreServicio}`,
     'hdr-institucion': nombreInstitucion,
-    'login-servicio': `Monitoreo de Dispositivos · ${nombreServicio}`,
-    'login-institucion': CONFIG_INSTITUCION.institucion,
-    'loginpac-servicio': `Monitoreo de Dispositivos · ${nombreServicio}`,
-    'loginpac-institucion': CONFIG_INSTITUCION.institucion,
+    'login-servicio': 'Monitoreo de Dispositivos',
+    'loginpac-servicio': 'Monitoreo de Dispositivos',
   };
   Object.entries(ids).forEach(([id, text]) => {
     const el = document.getElementById(id);
