@@ -1461,7 +1461,7 @@ async function generarPDFResumen(controlId) {
   // ══════════════════════════════════════════════
   // TÍTULO PRINCIPAL — centrado, recuadrado de margen a margen
   // ══════════════════════════════════════════════
-  const TITULO = 'CONTROL DE DISPOSITIVO DE ESTIMULACION CARDIACA';
+  const TITULO = 'CONTROL DE DISPOSITIVO DE ESTIMULACIÓN CARDÍACA';
   const TITULO_SIZE = 12;
   const tituloW = fontBold.widthOfTextAtSize(TITULO, TITULO_SIZE);
   const tituloPadV = 6;
@@ -1492,6 +1492,7 @@ async function generarPDFResumen(controlId) {
   const sexoTexto = pac.sexo === 'F' ? 'Femenino' : pac.sexo === 'M' ? 'Masculino' : null;
   if (sexoTexto)           { y = drawCampo(page, 'Sexo', sexoTexto, y); y -= 2; }
   if (pac.fechaNacimiento) { y = drawCampo(page, 'Edad', calcularEdad(pac.fechaNacimiento) + ' años', y); y -= 2; }
+  if (pac.tel)             { y = drawCampo(page, 'Teléfono', pac.tel, y); y -= 2; }
   y -= 8;
 
   // ══════════════════════════════════════════════
