@@ -1474,25 +1474,33 @@ async function generarPDFResumen(controlId) {
   page.drawText(TITULO, { x:tituloX, y, font:fontBold, size:TITULO_SIZE, color:COLOR_NEGRO });
   y -= tituloAltura + 10;
 
-  // Fecha del control
+  // ══════════════════════════════════════════════
+  // CONTROL ACTUAL
+  // ══════════════════════════════════════════════
+  await checkPage(60);
+  y = drawSeccion(page, 'CONTROL ACTUAL', y);
+  y -= 4;
+
   if (ctrl.fechaControl) {
     const fmtFechaControl = (() => {
       const [yr, mo, dy] = ctrl.fechaControl.split('-');
       const meses = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
       return `${parseInt(dy)} de ${meses[parseInt(mo)-1]} de ${yr}`;
     })();
-    // Label "FECHA DE CONTROL:" en negrita, mismo estilo que títulos de sección
-    const fechaLabel = 'FECHA DE CONTROL: ';
-    const fechaValor = sanitizarParaPDF(fmtFechaControl);
-    const fechaLabelW = fontBold.widthOfTextAtSize(fechaLabel, 9);
-    const fechaLabelSinEspacio = fechaLabel.trimEnd();
-    const fechaLabelSinEspacioW = fontBold.widthOfTextAtSize(fechaLabelSinEspacio, 9);
-    page.drawText(fechaLabel, { x:margenX, y, font:fontBold, size:9, color:COLOR_NEGRO });
-    page.drawText(fechaValor, { x:margenX + fechaLabelW, y, font:fontBold, size:9, color:COLOR_NEGRO });
-    // Subrayado solo bajo la etiqueta, sin el espacio final
-    page.drawLine({ start:{x:margenX, y:y-2}, end:{x:margenX + fechaLabelSinEspacioW, y:y-2}, thickness:0.5, color:COLOR_NEGRO });
-    y -= LH + 16;
+    y = drawCampo(page, 'Fecha de control', fmtFechaControl, y);
   }
+
+  if (prof) {
+    const partesProfPDF = prof.nombre.split(', ');
+    const apellidoProf = (partesProfPDF[0] || '').toUpperCase();
+    const nombreProf   = partesProfPDF[1]
+      ? partesProfPDF[1].split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')
+      : '';
+    const nombreProfFormateado = apellidoProf + (nombreProf ? ', ' + nombreProf : '');
+    y = drawCampo(page, 'Profesional interviniente', nombreProfFormateado, y);
+  }
+
+  y -= 8;
 
   // ══════════════════════════════════════════════
   // DATOS DEL PACIENTE
