@@ -5131,6 +5131,7 @@ async function openModalEditarProfesional(profId, targetId) {
   try {
     const rows = await sbGet('profesional_hospital?profesional_id=eq.'+profId);
     hospAsignados = (rows||[]).map(r => String(r.hospital_id));
+    alert('hospAsignados al abrir: '+JSON.stringify(hospAsignados));
   } catch(e) { console.warn('profesional_hospital:', e); }
 
   const hospCheckboxes = hospitales_lista.length > 0
