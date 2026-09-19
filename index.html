@@ -530,7 +530,7 @@ async function cargarDataset() {
     sbGet('turnos_reservados'), sbGet('acciones_contacto'), sbGet('config_general'), sbGet('contadores'), sbGet('agenda_profesional'), sbGet('hospitales')
   ]);
   profesionales = (pr||[]).map(p => ({ id:String(p.id||''), nombre:String(p.nombre||''), dni:String(p.dni||''), rol:String(p.rol||'medico'), firmaUrl:String(p.firma_url||'') }));
-  hospitales_lista = (hosp||[]).map(h => ({ id:String(h.id||''), nombre:String(h.nombre||''), codigo:String(h.codigo||''), ciudad:String(h.ciudad||''), servicio:String(h.servicio||'') }));
+  hospitales_lista = (hosp||[]).map(h => ({ id:String(h.id||''), nombre:String(h.nombre||''), codigo:String(h.codigo||''), ciudad:String(h.ciudad||''), servicio:String(h.servicio||''), membreteUrl:String(h.membrete_url||'') }));
   // Si hay un solo hospital, setearlo directamente (caso HIGA Fase 1)
   if (!hospitalActual && hospitales_lista.length === 1) {
     hospitalActual = hospitales_lista[0];
@@ -1273,10 +1273,12 @@ async function generarPDFResumen(controlId) {
   if (!pac) return;
 
   // ── Cargar membrete PDF ──
+  // Usar membrete del hospital actual (por hospital), con fallback al global legacy
+  const membreteUrlEfectivo = hospitalActual?.membreteUrl || MEMBRETE_URL || '';
   let membreteBytes = null;
-  if (MEMBRETE_URL) {
+  if (membreteUrlEfectivo) {
     try {
-      const resp = await fetch(MEMBRETE_URL);
+      const resp = await fetch(membreteUrlEfectivo);
       membreteBytes = await resp.arrayBuffer();
     } catch(e) { console.warn('No se pudo cargar el membrete:', e); }
   }
@@ -1917,71 +1919,10 @@ async function renderSeccionDocumentos() {
   if (!cont) return;
 
   cont.innerHTML = `
-    <div style="margin-bottom:1.5rem;">
-      <label style="font-size:13px; font-weight:600; display:block; margin-bottom:8px;">Hoja membretada</label>
-      <div style="font-size:12px; color:var(--mr-text-muted); margin-bottom:8px;">
-        ${MEMBRETE_URL ? `<span style="color:var(--mr-teal-text);">✓ Membrete cargado</span> · <a href="${MEMBRETE_URL}" target="_blank" style="color:var(--mr-primary);">Ver</a>` : 'Sin membrete cargado'}
-      </div>
-      <div style="display:flex; gap:8px; align-items:center;">
-        <input type="file" id="cfg-membrete-file" accept=".pdf" style="font-size:12px;">
-        <button id="cfg-membrete-subir" class="btn-primary" style="font-size:12px;">Subir membrete</button>
-      </div>
-      <div style="font-size:11px; color:var(--mr-text-muted); margin-top:4px;">Subí un archivo PDF de la hoja membretada (con encabezado y pie de página). El texto del resumen se superpone sobre cada página.</div>
-    </div>
-    <div>
-      <label style="font-size:13px; font-weight:600; display:block; margin-bottom:8px;">Firmas de profesionales</label>
-      ${profesionales.filter(p=>p.rol==='medico').map(p => `
-        <div style="display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--mr-border);">
-          <div style="flex:1;">
-            <div style="font-size:13px; font-weight:600;">${p.nombre}</div>
-            <div style="font-size:11px; color:var(--mr-text-muted);">${p.firmaUrl ? '✓ Firma cargada' : 'Sin firma'}</div>
-          </div>
-          ${p.firmaUrl ? `<img src="${p.firmaUrl}" style="height:40px; border:1px solid var(--mr-border); border-radius:4px; background:#f5f5f5;">` : ''}
-          <div style="display:flex; gap:6px; align-items:center;">
-            <input type="file" id="cfg-firma-${p.id}" accept=".png" style="font-size:11px; width:150px;">
-            <button class="btn-secondary cfg-firma-subir" data-prof="${p.id}" style="font-size:11px;">Subir firma</button>
-          </div>
-        </div>`).join('')}
+    <div style="font-size:12px;color:var(--mr-text-muted);">
+      Las firmas de cada profesional se gestionan desde su perfil en la sección <strong>Usuarios</strong>.<br>
+      La hoja membretada de cada institución se configura desde <strong>Configuración → Instituciones</strong>, editando el hospital correspondiente.
     </div>`;
-
-  // Listener membrete
-  document.getElementById('cfg-membrete-subir').addEventListener('click', async () => {
-    const file = document.getElementById('cfg-membrete-file').files[0];
-    if (!file) { alert('Seleccioná una imagen.'); return; }
-    const btn = document.getElementById('cfg-membrete-subir');
-    btn.disabled = true; btn.textContent = 'Subiendo...';
-    const url = await subirArchivoStorage('membrete', 'membrete.pdf', file);
-    if (url) {
-      MEMBRETE_URL = url;
-      await guardarConfig_('MEMBRETE_URL', url);
-      alert('Membrete subido correctamente.');
-      renderSeccionDocumentos();
-    } else {
-      alert('Error al subir el archivo.');
-    }
-    btn.disabled = false; btn.textContent = 'Subir membrete';
-  });
-
-  // Listeners firmas
-  cont.querySelectorAll('.cfg-firma-subir').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const profId = btn.dataset.prof;
-      const file = document.getElementById('cfg-firma-' + profId).files[0];
-      if (!file) { alert('Seleccioná una imagen PNG.'); return; }
-      btn.disabled = true; btn.textContent = 'Subiendo...';
-      const url = await subirArchivoStorage('firmas', `firma_${profId}.png`, file);
-      if (url) {
-        await sbUpdate('profesionales', 'id=eq.' + profId, { firma_url: url });
-        const prof = profesionales.find(p => p.id === profId);
-        if (prof) prof.firmaUrl = url;
-        alert('Firma subida correctamente.');
-        renderSeccionDocumentos();
-      } else {
-        alert('Error al subir la firma.');
-      }
-      btn.disabled = false; btn.textContent = 'Subir firma';
-    });
-  });
 }
 
 function renderAgendasProfesionales() {
@@ -2197,7 +2138,6 @@ function renderAgendaProfPanel(profId) {
     await guardarAgendaProf_(profId, ag);
     btn.disabled = false; btn.textContent = 'Guardar agenda';
     renderAgendasProfesionales();
-  renderSeccionDocumentos();
   });
 }
 
@@ -4564,8 +4504,7 @@ function renderConfig() {
         <div style="display:none;">Configuración de agenda</div>
         <div style="padding:1rem; display:none;" id="cfg-agenda"></div>
       </div>
-      <div style="border:0.5px solid var(--mr-border); border-radius:10px; overflow:hidden; margin-bottom:1rem;">
-        <div style="background:var(--mr-bg); padding:0.75rem 1rem; border-bottom:0.5px solid var(--mr-border); font-weight:700; font-size:13px; color:var(--mr-primary);">Documentos (membrete y firmas)</div>
+      <div style="display:none;" id="cfg-documentos-section">
         <div style="padding:1rem;" id="cfg-documentos"></div>
       </div>
       <div style="border:0.5px solid var(--mr-border); border-radius:10px; overflow:hidden; margin-bottom:1rem;">
@@ -4601,7 +4540,6 @@ function renderConfig() {
   renderProfesionales('cfg-prof');
   renderAgendaConfig('cfg-agenda');
   renderAgendasProfesionales();
-  renderSeccionDocumentos();
   renderCfgInstitucion();
   renderHospitales();
   renderCfgInvestigacion();
@@ -4622,7 +4560,7 @@ async function renderHospitales() {
   // Recargar desde Supabase para tener datos frescos
   try {
     const rows = await sbGet('hospitales');
-    hospitales_lista = (rows||[]).map(h => ({ id:String(h.id||''), nombre:String(h.nombre||''), codigo:String(h.codigo||''), ciudad:String(h.ciudad||''), servicio:String(h.servicio||'') }));
+    hospitales_lista = (rows||[]).map(h => ({ id:String(h.id||''), nombre:String(h.nombre||''), codigo:String(h.codigo||''), ciudad:String(h.ciudad||''), servicio:String(h.servicio||''), membreteUrl:String(h.membrete_url||'') }));
   } catch(e) { console.error('Error cargando hospitales:', e); }
 
   // Cargar asignaciones profesional_hospital
@@ -4669,6 +4607,9 @@ function nuevoHospital() {
     document.getElementById('mhosp-servicio').value = '';
     document.getElementById('mhosp-ciudad').value = '';
     document.getElementById('mhosp-title').textContent = 'Nuevo hospital';
+    document.getElementById('mhosp-membrete-actual').textContent = 'Sin membrete';
+    document.getElementById('mhosp-membrete-file').value = '';
+    document.getElementById('mhosp-membrete-msg').style.display = 'none';
     modal.style.display = 'flex';
     return;
   }
@@ -4677,12 +4618,22 @@ function nuevoHospital() {
   div.id = 'modal-hospital';
   div.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:1000;';
   div.innerHTML = `
-    <div style="background:#fff;border-radius:12px;padding:1.5rem;width:100%;max-width:380px;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
+    <div style="background:#fff;border-radius:12px;padding:1.5rem;width:100%;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,0.15);">
       <h4 id="mhosp-title" style="margin:0 0 1rem;">Nuevo hospital</h4>
       <input type="hidden" id="mhosp-id">
       <div class="field"><label>Nombre de la institución</label><input type="text" id="mhosp-nombre" placeholder="Ej: Hospital Italiano"></div>
       <div class="field"><label>Nombre del servicio</label><input type="text" id="mhosp-servicio" placeholder="Ej: Servicio de Cardiología"></div>
       <div class="field"><label>Ciudad</label><input type="text" id="mhosp-ciudad" placeholder="Ej: La Plata"></div>
+      <div class="field">
+        <label>Hoja membretada</label>
+        <div id="mhosp-membrete-actual" style="font-size:12px;color:var(--mr-text-muted);margin-bottom:6px;">Sin membrete</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="file" id="mhosp-membrete-file" accept=".pdf" style="font-size:12px;flex:1;">
+          <button id="mhosp-membrete-subir" class="btn-secondary" style="font-size:12px;white-space:nowrap;" onclick="subirMembreteHospital()">Subir PDF</button>
+        </div>
+        <div id="mhosp-membrete-msg" style="font-size:11px;color:var(--mr-teal);margin-top:4px;display:none;">✓ Membrete actualizado</div>
+        <div style="font-size:11px;color:var(--mr-text-muted);margin-top:4px;">PDF de hoja membretada (encabezado y pie de página). El texto se superpone sobre cada página.</div>
+      </div>
       <div id="mhosp-msg" class="msg err" style="display:none;margin-bottom:0.5rem;"></div>
       <div style="display:flex;gap:8px;margin-top:1rem;">
         <button class="btn-primary" style="flex:1;" onclick="guardarHospital()">Guardar</button>
@@ -4702,6 +4653,14 @@ function editarHospital(id) {
     document.getElementById('mhosp-servicio').value = h.servicio || '';
     document.getElementById('mhosp-ciudad').value = h.ciudad || '';
     document.getElementById('mhosp-title').textContent = 'Editar hospital';
+    const memActual = document.getElementById('mhosp-membrete-actual');
+    if (memActual) {
+      if (h.membreteUrl) {
+        memActual.innerHTML = `<span style="color:var(--mr-teal-text);">✓ Membrete cargado</span> · <a href="${h.membreteUrl}" target="_blank" style="color:var(--mr-primary);">Ver PDF</a>`;
+      } else {
+        memActual.textContent = 'Sin membrete';
+      }
+    }
   }, 50);
 }
 
@@ -4723,12 +4682,34 @@ async function guardarHospital() {
     // Nuevo hospital: usar UUID simple basado en timestamp
     const newId = 'H' + Date.now();
     await sbInsert('hospitales', { id: newId, nombre, servicio: servicio || null, ciudad: ciudad || null });
-    hospitales_lista.push({ id: newId, nombre, servicio, ciudad });
+    hospitales_lista.push({ id: newId, nombre, servicio, ciudad, membreteUrl: '' });
   }
   document.getElementById('modal-hospital').style.display = 'none';
   renderHospitales();
   _actualizarSelectorHospitalHeader();
   await registrarAccion(null, 'config', id ? 'Hospital editado: '+nombre : 'Hospital creado: '+nombre);
+}
+
+async function subirMembreteHospital() {
+  const id = document.getElementById('mhosp-id').value.trim();
+  if (!id) { alert('Primero guardá el hospital para poder subir el membrete.'); return; }
+  const file = document.getElementById('mhosp-membrete-file').files[0];
+  if (!file) { alert('Seleccioná un archivo PDF.'); return; }
+  const btn = document.getElementById('mhosp-membrete-subir');
+  btn.disabled = true; btn.textContent = 'Subiendo...';
+  const url = await subirArchivoStorage('membrete', 'membrete_'+id+'.pdf', file);
+  if (url) {
+    await sbUpdate('hospitales', 'id=eq.'+id, { membrete_url: url });
+    const h = hospitales_lista.find(x => x.id === id);
+    if (h) h.membreteUrl = url;
+    if (hospitalActual?.id === id) hospitalActual.membreteUrl = url;
+    document.getElementById('mhosp-membrete-msg').style.display = 'block';
+    const memActual = document.getElementById('mhosp-membrete-actual');
+    if (memActual) memActual.innerHTML = `<span style="color:var(--mr-teal-text);">✓ Membrete cargado</span> · <a href="${url}" target="_blank" style="color:var(--mr-primary);">Ver PDF</a>`;
+  } else {
+    alert('Error al subir el membrete.');
+  }
+  btn.disabled = false; btn.textContent = 'Subir PDF';
 }
 
 function toggleProfSection(hospId) {
@@ -5158,12 +5139,33 @@ async function openModalEditarProfesional(profId, targetId) {
     <div id="epr-msg" class="msg err" style="display:none;"></div>
     <div class="field"><label>Rol</label><select id="epr-rol"><option value="admin" ${prof.rol==='admin'?'selected':''}>Administrador</option><option value="medico" ${(!prof.rol||prof.rol==='medico')?'selected':''}>Médico/Técnico</option><option value="recepcionista" ${prof.rol==='recepcionista'?'selected':''}>Recepcionista</option><option value="investigador" ${prof.rol==='investigador'?'selected':''}>Investigador</option></select></div>
     ${hospCheckboxes}
+    <div class="field"><label>Firma</label>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:4px;">
+        ${prof.firmaUrl ? `<img src="${prof.firmaUrl}" style="height:36px;border:0.5px solid var(--mr-border);border-radius:4px;background:#f5f5f5;padding:2px;">` : '<span style="font-size:12px;color:var(--mr-text-muted);">Sin firma</span>'}
+        <input type="file" id="epr-firma-file" accept=".png" style="font-size:12px;flex:1;">
+        <button id="epr-firma-subir" class="btn-secondary" style="font-size:12px;white-space:nowrap;">Subir firma</button>
+      </div>
+      <div id="epr-firma-msg" style="font-size:11px;color:var(--mr-teal);margin-top:4px;display:none;">✓ Firma actualizada</div>
+    </div>
     <div style="display:flex; gap:8px;">
       <button id="epr-guardar" class="btn-primary">Guardar usuario</button>
       <button id="epr-cancelar" class="btn-secondary">Cancelar</button>
     </div>
   `;
   document.getElementById('epr-cancelar').addEventListener('click', closeModal);
+  document.getElementById('epr-firma-subir').addEventListener('click', async () => {
+    const file = document.getElementById('epr-firma-file').files[0];
+    if (!file) { alert('Seleccioná una imagen PNG.'); return; }
+    const btn = document.getElementById('epr-firma-subir');
+    btn.disabled = true; btn.textContent = 'Subiendo...';
+    const url = await subirArchivoStorage('firmas', 'firma_'+profId+'.png', file);
+    if (url) {
+      await sbUpdate('profesionales', 'id=eq.'+profId, { firma_url: url });
+      prof.firmaUrl = url;
+      document.getElementById('epr-firma-msg').style.display = 'block';
+    } else { alert('Error al subir la firma.'); }
+    btn.disabled = false; btn.textContent = 'Subir firma';
+  });
   document.getElementById('epr-guardar').addEventListener('click', async () => {
     const _btn_epr_guardar = document.getElementById('epr-guardar'); _btn_epr_guardar.disabled=true; _btn_epr_guardar.textContent='Guardando...';
     const apellido = formatearApellido(document.getElementById('epr-apellido').value.trim());
