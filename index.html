@@ -685,6 +685,7 @@ async function actualizarDispositivo_(dispositivoId, cambios) {
   if (cambios.subtipo        !== undefined) upd.subtipo        = cambios.subtipo;
   if (cambios.fechaImplante  !== undefined) upd.fecha_implante = cambios.fechaImplante||null;
   if (cambios.motivoImplante !== undefined) upd.motivo_implante= cambios.motivoImplante;
+  if (cambios.observaciones  !== undefined) upd.observaciones  = cambios.observaciones;
   await sbUpdate('dispositivos','id=eq.'+dispositivoId, upd);
   const idx = dispositivos.findIndex(d => d.id === dispositivoId);
   if (idx >= 0) Object.assign(dispositivos[idx], cambios);
@@ -3825,6 +3826,7 @@ function renderListaPacientes(filtro='', tiposActivos=[], marcasActivas=[]) {
             <div style="border:0.5px solid var(--mr-border); border-radius:8px; padding:0.6rem 0.8rem; background:#fff; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
               <div style="font-size:13px; font-weight:700;">${tipoActivo.nombre} · ${dispActivo.marca}${dispActivo.modelo?' · '+dispActivo.modelo:''}</div><div style="font-size:12px; color:var(--mr-text-muted);">${dispActivo.serie ? 'N° serie: '+dispActivo.serie : ''}</div>
               ${dispActivo.fechaImplante ? `<div style="font-size:11px; color:var(--mr-text-muted); margin-top:2px;">Implante: ${fmtDate(dispActivo.fechaImplante)}</div>` : ''}
+              ${dispActivo.observaciones ? `<div style="font-size:11px; color:var(--mr-text-muted); margin-top:3px; font-style:italic;">Obs: ${dispActivo.observaciones}</div>` : ''}
               <div style="display:flex; gap:4px;">
                 <button class="btn-icon-tooltip btn-editar-disp" data-pac="${p.id}" data-tooltip="Editar dispositivo">
                   <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -3838,7 +3840,7 @@ function renderListaPacientes(filtro='', tiposActivos=[], marcasActivas=[]) {
             <button class="btn-primary btn-add-disp" data-pac="${p.id}" style="font-size:12px; padding:6px 12px; margin-bottom:8px;">+ Agregar dispositivo</button>`}
           ${historial.length > 0 ? `
             <div style="font-weight:700; font-size:12px; color:var(--mr-text-muted); margin-bottom:4px; margin-top:4px;">Historial de recambios</div>
-            ${historial.map(d=>`<div style="border:0.5px solid var(--mr-border); border-radius:8px; padding:0.5rem 0.8rem; background:#fff; font-size:12px; color:var(--mr-text-muted); margin-bottom:4px;">${(TIPOS[d.tipo] || {nombre:d.tipo||'?', lapso:12}).nombre} · ${d.marca} ${d.modelo}${d.fechaRecambio ? ' · Reemplazado: '+fmtDate(d.fechaRecambio) : ''}</div>`).join('')}` : ''}
+            ${historial.map(d=>`<div style="border:0.5px solid var(--mr-border); border-radius:8px; padding:0.5rem 0.8rem; background:#fff; font-size:12px; color:var(--mr-text-muted); margin-bottom:4px;">${(TIPOS[d.tipo] || {nombre:d.tipo||'?', lapso:12}).nombre} · ${d.marca} ${d.modelo}${d.fechaRecambio ? ' · Reemplazado: '+fmtDate(d.fechaRecambio) : ''}${d.observaciones ? `<div style="font-style:italic; margin-top:3px;">Obs: ${d.observaciones}</div>` : ''}</div>`).join('')}` : ''}
         </div>
         ${(() => {
           const ultControl = controles.filter(c=>c.pacienteId===p.id).sort((a,b)=>diasRestantes(b.fechaControl)-diasRestantes(a.fechaControl))[0];
@@ -4662,8 +4664,9 @@ function openModalEditarDispositivo(pacienteId) {
     <div class="field"><label>Número de serie</label><input type="text" id="ed-serie" value="${disp.serie||''}" placeholder="Opcional"></div>
     <div class="field"><label>Fecha de implante</label><input type="date" id="ed-fechaimplante" value="${disp.fechaImplante||''}" ></div>
     <div class="field"><label>Motivo del implante</label>${motivoSelectorHTML('ed-motivoimplante', disp.motivoImplante)}</div>
+    <div class="field"><label>Observaciones</label><textarea id="ed-obs" rows="3" placeholder="Observaciones (opcional)" style="width:100%; resize:vertical; font-family:inherit; font-size:13px; padding:8px; border:1px solid var(--mr-border); border-radius:6px; box-sizing:border-box;">${disp.observaciones||''}</textarea></div>
     <div style="display:flex; gap:8px; margin-top:1rem;">
-      <button id="ed-guardar" class="btn-primary">Guardar usuario</button>
+      <button id="ed-guardar" class="btn-primary">Guardar dispositivo</button>
       <button id="ed-cancelar" class="btn-secondary">Cancelar</button>
     </div>
   `;
@@ -4688,7 +4691,8 @@ function openModalEditarDispositivo(pacienteId) {
       serie: document.getElementById('ed-serie')?.value.trim() || '',
       subtipo: document.getElementById('ed-subtipo')?.value || '',
       fechaImplante: document.getElementById('ed-fechaimplante')?.value || '',
-      motivoImplante: getMotivoValue('ed-motivoimplante')
+      motivoImplante: getMotivoValue('ed-motivoimplante'),
+      observaciones: document.getElementById('ed-obs')?.value.trim() || ''
     };
     Object.assign(disp, cambiosDisp);
     try {
