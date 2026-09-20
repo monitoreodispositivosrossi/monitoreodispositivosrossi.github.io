@@ -517,7 +517,8 @@ function mapDisp(d) {
     subtipo: String(d.subtipo||''), fechaImplante: parseFechaSB(d.fecha_implante),
     motivoImplante: String(d.motivo_implante||''),
     activo: d.activo !== false, fechaRecambio: parseFechaSB(d.fecha_recambio),
-    hospitalId: String(d.hospital_id||'')
+    hospitalId: String(d.hospital_id||''),
+    observaciones: String(d.observaciones||'')
   };
 }
 function mapCtrl(c) {
@@ -669,7 +670,7 @@ async function guardarNuevoDispositivo_(pacienteId, datos, esRecambio) {
   const row = { id, paciente_id:pacienteId, tipo:datos.tipo, marca:datos.marca,
     modelo:datos.modelo||'', serie:datos.serie||'', subtipo:datos.subtipo||'',
     fecha_implante:datos.fechaImplante||null, motivo_implante:datos.motivoImplante||'',
-    activo:true, fecha_recambio:null,
+    activo:true, fecha_recambio:null, observaciones:datos.observaciones||'',
     hospital_id: hospitalActual ? hospitalActual.id : null };
   await sbInsert('dispositivos', row);
   dispositivos.push(mapDisp(row));
@@ -4773,6 +4774,7 @@ function openModalRecambio(pacienteId) {
     <div class="field"><label>Número de serie</label><input type="text" id="rc-serie" placeholder="Opcional"></div>
     <div class="field"><label>Motivo del implante</label>${motivoSelectorHTML('rc-motivoimplante')}</div>
     <div class="field"><label>Fecha de recambio</label><input type="date" id="rc-fecha"></div>
+    <div class="field"><label>Observaciones</label><textarea id="rc-obs" rows="3" placeholder="Observaciones (opcional)" style="width:100%; resize:vertical; font-family:inherit; font-size:13px; padding:8px; border:1px solid var(--mr-border); border-radius:6px; box-sizing:border-box;"></textarea></div>
     <div id="rc-msg" class="msg err" style="display:none;"></div>
     <div style="display:flex; gap:8px;">
       <button id="rc-guardar" class="btn-primary">Confirmar recambio</button>
@@ -4794,7 +4796,8 @@ function openModalRecambio(pacienteId) {
     const msg = document.getElementById('rc-msg');
     // Parsear fecha local para evitar bug UTC
     const fechaLocal = fecha ? (() => { const [y,m,d] = fecha.split('-'); return new Date(+y, +m-1, +d); })() : new Date();
-    const _rRC = await guardarNuevoDispositivo_(pacienteId, {tipo, marca, modelo, serie, subtipo, fechaImplante:fecha, motivoImplante}, true);
+    const observaciones = document.getElementById('rc-obs')?.value.trim() || '';
+    const _rRC = await guardarNuevoDispositivo_(pacienteId, {tipo, marca, modelo, serie, subtipo, fechaImplante:fecha, motivoImplante, observaciones}, true);
     closeModal();
     const _lp = document.getElementById("lista-pac"); if (_lp) renderListaPacientes();
   });
