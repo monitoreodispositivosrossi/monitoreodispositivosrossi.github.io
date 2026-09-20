@@ -1571,6 +1571,7 @@ async function generarPDFResumen(controlId) {
     if (disp.serie)         { y = drawCampo(page, 'Número de serie', disp.serie, y); y -= 2; }
     if (disp.fechaImplante) { y = drawCampo(page, 'Fecha de implante', fmtDate(disp.fechaImplante), y); y -= 2; }
     if (disp.motivoImplante){ y = drawCampo(page, 'Motivo del implante', disp.motivoImplante, y); y -= 2; }
+    if (disp.observaciones)  { y = drawCampo(page, 'Observaciones', disp.observaciones, y); y -= 2; }
   }
   y -= 8;
 
@@ -4550,6 +4551,7 @@ function generarTextoResumen(controlId) {
   if (disp?.serie) texto += `\nNúmero de serie: ${disp.serie}`;
   if (disp?.fechaImplante) texto += `\nFecha de implante: ${fmtDate(disp.fechaImplante)}`;
   if (disp?.motivoImplante) texto += `\nMotivo del implante: ${disp.motivoImplante}`;
+  if (disp?.observaciones)  texto += `\nObservaciones: ${disp.observaciones}`;
   texto += `\n\nBatería: ${vidaBat}`;
   if (todosParams) texto += `\n${todosParams}`;
   if (params['__otros__']) texto += `\n${params['__otros__']}`;
