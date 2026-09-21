@@ -6157,17 +6157,20 @@ function renderPacienteView() {
   if (mesesRestantes !== null) {
     let batColor, batLabel, batPct;
     if (mesesRestantes <= 3) {
-      batColor = 'var(--mr-coral)'; batLabel = 'Batería crítica'; batPct = 15;
+      // Rojo: 0m→5%, 3m→20%
+      batColor = 'var(--mr-coral)'; batLabel = 'Batería crítica';
+      batPct = Math.round(5 + (mesesRestantes / 3) * 15);
     } else if (mesesRestantes <= 12) {
-      // Amarillo: escala continua 3→48 meses = 20%→75%
+      // Amarillo: 3m→20%, 12m→45%
       batColor = 'var(--mr-amber)'; batLabel = 'Batería con atención próxima';
-      batPct = Math.round(20 + ((mesesRestantes - 3) / 45) * 55);
-    } else if (mesesRestantes <= 48) {
-      // Verde: misma fórmula continua, sin salto al cruzar 12 meses
+      batPct = Math.round(20 + ((mesesRestantes - 3) / 9) * 25);
+    } else if (mesesRestantes <= 60) {
+      // Verde: 12m→45%, 60m→90%
       batColor = 'var(--mr-teal)'; batLabel = 'Batería en buen estado';
-      batPct = Math.round(20 + ((mesesRestantes - 3) / 45) * 55);
+      batPct = Math.round(45 + ((mesesRestantes - 12) / 48) * 45);
     } else {
-      batColor = 'var(--mr-teal)'; batLabel = 'Batería en buen estado'; batPct = 85;
+      // >60m: fijo en 90%
+      batColor = 'var(--mr-teal)'; batLabel = 'Batería en buen estado'; batPct = 90;
     }
     bateriaHTML = `
       <div style="margin-top:12px;">
