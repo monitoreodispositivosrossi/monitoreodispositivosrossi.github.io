@@ -6595,6 +6595,7 @@ actualizarTextoInstitucional();
 
 (async function() {
   document.getElementById('body-login').style.display = 'flex';
+  document.querySelector('.header').style.display = 'none';
   try { await cargarDataset(); actualizarTextoInstitucional(); }
   catch(e) {
     console.error('Error al cargar:', e);
