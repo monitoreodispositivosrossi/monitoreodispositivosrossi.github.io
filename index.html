@@ -232,7 +232,7 @@
 <body>
 
 <div class="app">
-  <div class="header">
+  <div class="header" style="display:none;">
     <div class="header-left">
       <div class="logo" style="width:42px; height:42px; border-radius:10px;">
         <img src="icon-192.png" alt="MODI ROSSI" style="width:100%; height:100%; object-fit:cover; border-radius:8px;">
@@ -881,6 +881,7 @@ function iniciarSesion(prof, hospital) {
     hospitalActual = hospital;
     actualizarTextoInstitucional();
   }
+  document.querySelector('.header').style.display = 'flex';
   document.getElementById('header-user').style.display = 'flex';
   document.getElementById('user-pill-text').textContent = prof.nombre.split(',')[0];
   document.getElementById('body-login').style.display = 'none';
@@ -922,6 +923,7 @@ function cerrarSesion() {
   document.getElementById('body-personal').style.display = 'none';
   document.getElementById('body-paciente').style.display = 'none';
   document.getElementById('body-login').style.display = 'flex';
+  document.querySelector('.header').style.display = 'none';
   document.getElementById('login-dni').value = '';
   document.getElementById('login-msg').style.display = 'none';
   // Resetear selector de hospital
