@@ -6159,13 +6159,13 @@ function renderPacienteView() {
     if (mesesRestantes <= 3) {
       batColor = 'var(--mr-coral)'; batLabel = 'Batería crítica'; batPct = 15;
     } else if (mesesRestantes <= 12) {
-      // Amarillo: escala entre 20% (3 meses) y 45% (12 meses)
+      // Amarillo: escala continua 3→48 meses = 20%→75%
       batColor = 'var(--mr-amber)'; batLabel = 'Batería con atención próxima';
-      batPct = Math.round(20 + ((mesesRestantes - 3) / 9) * 25);
+      batPct = Math.round(20 + ((mesesRestantes - 3) / 45) * 55);
     } else if (mesesRestantes <= 48) {
-      // Verde intermedio: escala entre 55% (12 meses) y 75% (48 meses)
+      // Verde: misma fórmula continua, sin salto al cruzar 12 meses
       batColor = 'var(--mr-teal)'; batLabel = 'Batería en buen estado';
-      batPct = Math.round(55 + ((mesesRestantes - 12) / 36) * 20);
+      batPct = Math.round(20 + ((mesesRestantes - 3) / 45) * 55);
     } else {
       batColor = 'var(--mr-teal)'; batLabel = 'Batería en buen estado'; batPct = 85;
     }
