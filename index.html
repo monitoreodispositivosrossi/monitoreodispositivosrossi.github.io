@@ -1772,12 +1772,22 @@ function getRecuperacionSeguimiento() {
     // Verificar si el último control tiene proxControl no vencido (dentro del seguimiento esperado)
     const ultimoCtrl = controlesPaciente.reduce((a,b) => diasRestantes(a.fechaControl) < diasRestantes(b.fechaControl) ? a : b, controlesPaciente[0]);
     const enSeguimientoEsperado = ultimoCtrl && diasRestantes(ultimoCtrl.proxControl) > -180;
+    // Verificar si tiene turno futuro asignado (en cualquiera de sus controles)
+    const hoy = new Date(); hoy.setHours(0,0,0,0);
+    const tieneTurno = controlesPaciente.some(c => {
+      const tr = turnosReservados.find(t => t.controlId === c.id);
+      if (!tr) return false;
+      const tf = _parseFmt(tr.fecha);
+      if (tf) tf.setHours(0,0,0,0);
+      return tf && tf >= hoy;
+    });
     return {
       paciente: pac,
       perdidoPre,
       tieneControlPost,
       enSeguimientoEsperado,
-      recuperado: perdidoPre && tieneControlPost
+      recuperado: perdidoPre && tieneControlPost,
+      tieneTurno
     };
   }).filter(r => r.perdidoPre);
 }
@@ -5903,9 +5913,9 @@ function renderTablaRecuperacion() {
   datos.forEach(d => {
     const motivoBaja = d.paciente.motivoBaja;
     const labelMotivo = motivoBaja ? (MOTIVOS_BAJA.find(m=>m.value===motivoBaja)?.label || motivoBaja) : null;
-    const estadoLabel = d.recuperado ? 'Recuperado' : d.enSeguimientoEsperado ? 'En seguimiento' : motivoBaja ? labelMotivo : 'Sin gestionar';
-    const estadoColor = d.recuperado ? 'risk-bajo' : motivoBaja ? '' : d.enSeguimientoEsperado ? '' : 'risk-alto';
-    const estadoStyle = d.recuperado ? '' : motivoBaja ? 'background:var(--mr-text-muted);color:#fff;' : d.enSeguimientoEsperado ? 'background:var(--mr-amber-bg);color:var(--mr-amber-text);' : '';
+    const estadoLabel = d.recuperado ? 'Recuperado' : d.enSeguimientoEsperado ? 'En seguimiento' : motivoBaja ? labelMotivo : d.tieneTurno ? 'Con turno asignado' : 'Sin gestionar';
+    const estadoColor = d.recuperado ? 'risk-bajo' : motivoBaja ? '' : d.enSeguimientoEsperado ? '' : d.tieneTurno ? '' : 'risk-alto';
+    const estadoStyle = d.recuperado ? '' : motivoBaja ? 'background:var(--mr-text-muted);color:#fff;' : d.enSeguimientoEsperado ? 'background:var(--mr-amber-bg);color:var(--mr-amber-text);' : d.tieneTurno ? 'background:var(--mr-teal-bg);color:var(--mr-teal-text);' : '';
     html += `
       <tr>
         <td style="font-weight:700;">${d.paciente.codigo}</td>
