@@ -2045,7 +2045,7 @@ function alertaHTML(a, cls) {
           </div>`;
         }
       })()}
-      ${a.accion ? `<div class="alert-sub" style="margin-top:2px;">Última acción: ${a.accion.tipo} · ${a.accion.resultado} · Contacto: ${fmtDate(a.accion.fecha)}</div>` : ''}
+      ${a.accion ? `<div class="alert-sub" style="margin-top:2px;">Última acción: ${a.accion.tipo} · Contacto: ${fmtDate(a.accion.fecha)}</div>` : ''}
       ${(() => {
         const mb = a.paciente.motivoBaja;
         if (!mb) return '';
@@ -2136,14 +2136,6 @@ async function openModalAccion(controlId) {
         <option value="Llamado telefónico">Llamado telefónico</option>
       </select>
     </div>
-    <div class="field">
-      <label>Resultado del contacto</label>
-      <select id="acc-resultado">
-        <option value="Enviado" selected>Enviado</option>
-        <option value="Contactado, turno asignado">Contactado, turno asignado</option>
-        <option value="Contactado, sin turno">Contactado, sin turno</option>
-      </select>
-    </div>
     <div class="field" id="acc-turno-field">
       <label>Asignar turno (opcional)</label>
       ${profsConAgenda.length > 1 ? `
@@ -2164,15 +2156,10 @@ async function openModalAccion(controlId) {
     renderTurnosSelect(e.target.value);
   });
 
-  // Ocultar turno si resultado es "No contactado"
-  document.getElementById('acc-resultado').addEventListener('change', (e) => {
-    document.getElementById('acc-turno-field').style.display = e.target.value === 'No contactado' ? 'none' : 'block';
-  });
-
   document.getElementById('acc-cancelar').addEventListener('click', closeModal);
   document.getElementById('acc-guardar').addEventListener('click', async () => {
     const medio = document.getElementById('acc-medio').value;
-    const resultado = document.getElementById('acc-resultado').value;
+    const resultado = '';
     const turnoVal = document.getElementById('acc-turno').value;
     if (turnoVal) {
       const [fechaStr, hora, profId] = turnoVal.split('|');
