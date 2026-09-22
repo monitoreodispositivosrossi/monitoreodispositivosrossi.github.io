@@ -551,7 +551,7 @@ function mapAccion(a) {
 async function cargarDataset() {
   const [pr,pa,di,co,tu,ac,cfg,cnt,agp,hosp,phmap] = await Promise.all([
     sbGet('profesionales'), sbGet('pacientes'), sbGet('dispositivos'), sbGet('controles'),
-    sbGet('turnos_reservados'), sbGet('acciones_contacto'), sbGet('config_general'), sbGet('contadores'), sbGet('agenda_profesional'), sbGet('hospitales'), sbGet('profesional_hospital')
+    sbGet('turnos_reservados'), sbGet('acciones_contacto', 'order=fecha.asc'), sbGet('config_general'), sbGet('contadores'), sbGet('agenda_profesional'), sbGet('hospitales'), sbGet('profesional_hospital')
   ]);
   profesionales = (pr||[]).map(p => ({ id:String(p.id||''), nombre:String(p.nombre||''), dni:String(p.dni||''), rol:String(p.rol||'medico'), firmaUrl:String(p.firma_url||'') }));
   hospitales_lista = (hosp||[]).map(h => ({ id:String(h.id||''), nombre:String(h.nombre||''), codigo:String(h.codigo||''), ciudad:String(h.ciudad||''), servicio:String(h.servicio||''), membreteUrl:String(h.membrete_url||''), fechaImpl:String(h.fecha_implementacion||'') }));
