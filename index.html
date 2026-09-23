@@ -5733,10 +5733,11 @@ function calcularIndicadores() {
   const rechazaron      = recuperacion.filter(r => !r.recuperado && r.paciente.motivoBaja === 'rechazo_seguimiento').length;
   const trasladados     = recuperacion.filter(r => !r.recuperado && r.paciente.motivoBaja === 'trasladado').length;
   const otroMotivo      = recuperacion.filter(r => !r.recuperado && r.paciente.motivoBaja === 'otro').length;
-  const sinGestionar    = recuperacion.filter(r => !r.recuperado && !r.paciente.motivoBaja).length;
+  const conTurno        = recuperacion.filter(r => !r.recuperado && !r.paciente.motivoBaja && r.tieneTurno).length;
+  const sinGestionar    = recuperacion.filter(r => !r.recuperado && !r.paciente.motivoBaja && !r.tieneTurno).length;
   const pctRecuperacion = totalPerdidos > 0 ? (recuperados / totalPerdidos * 100).toFixed(1) : '-';
 
-  return { fases: result, recuperacion: { totalPerdidos, recuperados, fallecidos, noLocalizables, rechazaron, trasladados, otroMotivo, sinGestionar, pctRecuperacion } };
+  return { fases: result, recuperacion: { totalPerdidos, recuperados, fallecidos, noLocalizables, rechazaron, trasladados, otroMotivo, conTurno, sinGestionar, pctRecuperacion } };
 }
 
 
@@ -5816,9 +5817,10 @@ function renderIndicadores() {
     <!-- Recuperación -->
     <div style="background:var(--mr-bg); border-radius:10px; padding:1rem; border:1px solid var(--mr-border);">
       <div style="font-weight:700; font-size:13px; margin-bottom:0.75rem; color:var(--mr-navy);">Recuperación del seguimiento</div>
-      <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; font-size:12px;">
+      <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; font-size:12px;">
         <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-navy);">${rec.totalPerdidos}</div><div style="color:var(--mr-text-muted);">Total</div></div>
         <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-teal-text);">${rec.recuperados}</div><div style="color:var(--mr-text-muted);">Recuperados</div></div>
+        <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-teal-text);">${rec.conTurno}</div><div style="color:var(--mr-text-muted);">Con turno asignado</div></div>
         <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-text-muted);">${rec.sinGestionar}</div><div style="color:var(--mr-text-muted);">Sin gestionar</div></div>
         <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-navy);">${rec.pctRecuperacion}%</div><div style="color:var(--mr-text-muted);">% Recuperación</div></div>
       </div>
