@@ -5819,19 +5819,11 @@ function renderIndicadores() {
       <div style="font-weight:700; font-size:13px; margin-bottom:0.75rem; color:var(--mr-navy);">Recuperación del seguimiento</div>
       <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; font-size:12px;">
         <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-navy);">${rec.totalPerdidos}</div><div style="color:var(--mr-text-muted);">Total</div></div>
-        <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-teal-text);">${rec.recuperados}</div><div style="color:var(--mr-text-muted);">Recuperados</div></div>
+        <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-teal-text);">${rec.recuperados}</div><div style="color:var(--mr-teal-text); font-size:11px; font-weight:600;">${rec.pctRecuperacion}%</div><div style="color:var(--mr-text-muted);">Recuperados</div></div>
         <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-teal-text);">${rec.conTurno}</div><div style="color:var(--mr-text-muted);">Con turno asignado</div></div>
-        <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-text-muted);">${rec.sinGestionar}</div><div style="color:var(--mr-text-muted);">Sin gestionar</div></div>
-        <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-navy);">${rec.pctRecuperacion}%</div><div style="color:var(--mr-text-muted);">% Recuperación</div></div>
+        <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-text-muted);">${rec.fallecidos+rec.noLocalizables+rec.rechazaron+rec.trasladados+rec.otroMotivo}</div><div style="color:var(--mr-text-muted);">Con baja registrada</div></div>
+        <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-coral-text);">${rec.sinGestionar}</div><div style="color:var(--mr-text-muted);">Sin gestionar</div></div>
       </div>
-      ${(rec.fallecidos+rec.noLocalizables+rec.rechazaron+rec.trasladados+rec.otroMotivo)>0 ? `
-      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; font-size:11px;">
-        ${rec.fallecidos>0?`<span style="background:var(--mr-text-muted);color:#fff;padding:2px 8px;border-radius:10px;">Fallecidos: ${rec.fallecidos}</span>`:''}
-        ${rec.noLocalizables>0?`<span style="background:var(--mr-amber-bg);color:var(--mr-amber-text);padding:2px 8px;border-radius:10px;">No localizables: ${rec.noLocalizables}</span>`:''}
-        ${rec.rechazaron>0?`<span style="background:var(--mr-coral-bg);color:var(--mr-coral-text);padding:2px 8px;border-radius:10px;">Rechazaron: ${rec.rechazaron}</span>`:''}
-        ${rec.trasladados>0?`<span style="background:#E6F1FB;color:#0C447C;padding:2px 8px;border-radius:10px;">Trasladados: ${rec.trasladados}</span>`:''}
-        ${rec.otroMotivo>0?`<span style="background:var(--mr-bg);color:var(--mr-text-muted);padding:2px 8px;border-radius:10px;border:1px solid var(--mr-border);">Otro: ${rec.otroMotivo}</span>`:''}
-      </div>` : ''}
     </div>
   `;
 }
