@@ -1458,6 +1458,7 @@ async function generarPDFResumen(controlId) {
   };
 
   // Recuadro con texto (para batería / alerta ERI)
+  // y = coordenada superior del recuadro (pdf-lib: y decrece hacia abajo)
   const drawRecuadro = (page, lineas, y, opts = {}) => {
     const { colorBorde = COLOR_GRIS, colorFondo = null, colorTexto = COLOR_NEGRO, bold = false } = opts;
     const f = bold ? fontBold : font;
@@ -1466,18 +1467,20 @@ async function generarPDFResumen(controlId) {
     const alturaLinea = LH;
     const totalAltura = lineas.length * alturaLinea + padV * 2;
     const x0 = margenX, x1 = W_pt - margenX;
-    const yTop = y + padV + (lineas.length - 1) * alturaLinea;
+    // yRect = esquina inferior izquierda del rectángulo (pdf-lib usa bottom-left)
+    const yRect = y - totalAltura;
     if (colorFondo) {
-      page.drawRectangle({ x:x0, y:y - padV, width:x1-x0, height:totalAltura, color:colorFondo, borderColor:colorBorde, borderWidth:0.8 });
+      page.drawRectangle({ x:x0, y:yRect, width:x1-x0, height:totalAltura, color:colorFondo, borderColor:colorBorde, borderWidth:0.8 });
     } else {
-      page.drawRectangle({ x:x0, y:y - padV, width:x1-x0, height:totalAltura, borderColor:colorBorde, borderWidth:0.8 });
+      page.drawRectangle({ x:x0, y:yRect, width:x1-x0, height:totalAltura, borderColor:colorBorde, borderWidth:0.8 });
     }
-    let yTxt = yTop;
+    // Primera línea de texto: justo debajo del borde superior, con padding
+    let yTxt = y - padV - alturaLinea + 2;
     for (const linea of lineas) {
       page.drawText(sanitizarParaPDF(linea), { x:x0 + padH, y:yTxt, font:f, size, color:colorTexto });
       yTxt -= alturaLinea;
     }
-    return y - padV - alturaLinea * (lineas.length - 1) - alturaLinea; // siguiente y después del recuadro
+    return yRect - 4; // siguiente y después del recuadro (con pequeño margen)
   };
 
   // ── Guardia de página ──
