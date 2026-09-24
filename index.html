@@ -5744,9 +5744,13 @@ function calcularIndicadores() {
   const otroMotivo      = recuperacion.filter(r => !r.recuperado && r.paciente.motivoBaja === 'otro').length;
   const conTurno        = recuperacion.filter(r => !r.recuperado && !r.paciente.motivoBaja && r.tieneTurno).length;
   const sinGestionar    = recuperacion.filter(r => !r.recuperado && !r.paciente.motivoBaja && !r.tieneTurno).length;
-  const pctRecuperacion = totalPerdidos > 0 ? (recuperados / totalPerdidos * 100).toFixed(1) : '-';
+  const pct = (n) => totalPerdidos > 0 ? (n / totalPerdidos * 100).toFixed(1) : '-';
+  const pctRecuperacion = pct(recuperados);
+  const pctConTurno     = pct(conTurno);
+  const pctConBaja      = pct(fallecidos + noLocalizables + rechazaron + trasladados + otroMotivo);
+  const pctSinGestionar = pct(sinGestionar);
 
-  return { fases: result, recuperacion: { totalPerdidos, recuperados, fallecidos, noLocalizables, rechazaron, trasladados, otroMotivo, conTurno, sinGestionar, pctRecuperacion } };
+  return { fases: result, recuperacion: { totalPerdidos, recuperados, fallecidos, noLocalizables, rechazaron, trasladados, otroMotivo, conTurno, sinGestionar, pctRecuperacion, pctConTurno, pctConBaja, pctSinGestionar } };
 }
 
 
@@ -5829,9 +5833,9 @@ function renderIndicadores() {
       <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; font-size:12px;">
         <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-navy);">${rec.totalPerdidos}</div><div style="color:var(--mr-text-muted);">Total</div></div>
         <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-teal-text);">${rec.recuperados}</div><div style="color:var(--mr-teal-text); font-size:11px; font-weight:600;">${rec.pctRecuperacion}%</div><div style="color:var(--mr-text-muted);">Recuperados</div></div>
-        <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-teal-text);">${rec.conTurno}</div><div style="color:var(--mr-text-muted);">Con turno asignado</div></div>
-        <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-text-muted);">${rec.fallecidos+rec.noLocalizables+rec.rechazaron+rec.trasladados+rec.otroMotivo}</div><div style="color:var(--mr-text-muted);">Con baja registrada</div></div>
-        <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-coral-text);">${rec.sinGestionar}</div><div style="color:var(--mr-text-muted);">Sin gestionar</div></div>
+        <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-teal-text);">${rec.conTurno}</div><div style="color:var(--mr-teal-text); font-size:11px; font-weight:600;">${rec.pctConTurno}%</div><div style="color:var(--mr-text-muted);">Con turno asignado</div></div>
+        <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-text-muted);">${rec.fallecidos+rec.noLocalizables+rec.rechazaron+rec.trasladados+rec.otroMotivo}</div><div style="color:var(--mr-text-muted); font-size:11px; font-weight:600;">${rec.pctConBaja}%</div><div style="color:var(--mr-text-muted);">Con baja registrada</div></div>
+        <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-coral-text);">${rec.sinGestionar}</div><div style="color:var(--mr-coral-text); font-size:11px; font-weight:600;">${rec.pctSinGestionar}%</div><div style="color:var(--mr-text-muted);">Sin gestionar</div></div>
       </div>
     </div>
   `;
