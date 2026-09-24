@@ -1611,7 +1611,7 @@ async function generarPDFResumen(controlId) {
   // ─ Alerta ERI ─
   if (ctrl.enEri) {
     await checkPage(40);
-    const alertaLineas = ['(!) DISPOSITIVO EN ESTADO ERI (Elective Replacement Indicator)', '   Se requiere evaluación para recambio del dispositivo.'];
+    const alertaLineas = ['(!) DISPOSITIVO EN ESTADO ERI (Elective Replacement Indicator)'];
     y = drawRecuadro(page, alertaLineas, y, { bold: true, colorBorde: COLOR_ALERTA, colorTexto: COLOR_ALERTA });
     y -= 10;
   } else if (ctrl.eriProximo === 'Sí') {
