@@ -1608,19 +1608,6 @@ async function generarPDFResumen(controlId) {
   y = drawSeccion(page, 'PARÁMETROS TÉCNICOS', y);
   y -= 2;
 
-  // ─ Alerta ERI ─
-  if (ctrl.enEri) {
-    await checkPage(40);
-    const alertaLineas = ['(!) DISPOSITIVO EN ESTADO ERI (Elective Replacement Indicator)'];
-    y = drawRecuadro(page, alertaLineas, y, { bold: true, colorBorde: COLOR_ALERTA, colorTexto: COLOR_ALERTA });
-    y -= 10;
-  } else if (ctrl.eriProximo === 'Sí') {
-    await checkPage(30);
-    const alertaLineas = ['(!) Dispositivo próximo a ERI — planificar recambio.'];
-    y = drawRecuadro(page, alertaLineas, y, { colorBorde: COLOR_ALERTA, colorTexto: COLOR_ALERTA });
-    y -= 10;
-  }
-
   // ─ Batería — destacada en negrita, tamaño 10, label en mayúscula ─
   const vidaBat = fmtVidaBateria(ctrl);
   if (vidaBat && vidaBat !== '-') {
@@ -1654,6 +1641,21 @@ async function generarPDFResumen(controlId) {
     await checkPage(LH * 3);
     y -= 4;
     y = drawWrapped(page, params['__otros__'], margenX, y, { size: 9, color: COLOR_GRIS });
+  }
+
+  // ─ Alerta ERI — al final de parámetros técnicos ─
+  if (ctrl.enEri) {
+    y -= 6;
+    await checkPage(40);
+    const alertaLineas = ['(!) DISPOSITIVO EN ESTADO ERI (Elective Replacement Indicator)'];
+    y = drawRecuadro(page, alertaLineas, y, { bold: true, colorBorde: COLOR_ALERTA, colorTexto: COLOR_ALERTA });
+    y -= 4;
+  } else if (ctrl.eriProximo === 'Sí') {
+    y -= 6;
+    await checkPage(30);
+    const alertaLineas = ['(!) Dispositivo próximo a ERI — planificar recambio.'];
+    y = drawRecuadro(page, alertaLineas, y, { colorBorde: COLOR_ALERTA, colorTexto: COLOR_ALERTA });
+    y -= 4;
   }
   y -= 8;
 
