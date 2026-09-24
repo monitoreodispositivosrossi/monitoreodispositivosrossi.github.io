@@ -1645,17 +1645,17 @@ async function generarPDFResumen(controlId) {
 
   // ─ Alerta ERI — al final de parámetros técnicos ─
   if (ctrl.enEri) {
-    y -= 6;
+    y -= 2;
     await checkPage(40);
     const alertaLineas = ['(!) DISPOSITIVO EN ESTADO ERI (Elective Replacement Indicator)'];
     y = drawRecuadro(page, alertaLineas, y, { bold: true, colorBorde: COLOR_ALERTA, colorTexto: COLOR_ALERTA });
-    y -= 4;
+    y -= 2;
   } else if (ctrl.eriProximo === 'Sí') {
-    y -= 6;
+    y -= 2;
     await checkPage(30);
     const alertaLineas = ['(!) Dispositivo próximo a ERI — planificar recambio.'];
     y = drawRecuadro(page, alertaLineas, y, { colorBorde: COLOR_ALERTA, colorTexto: COLOR_ALERTA });
-    y -= 4;
+    y -= 2;
   }
   y -= 8;
 
