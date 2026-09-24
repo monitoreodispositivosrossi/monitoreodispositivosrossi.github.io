@@ -1764,12 +1764,18 @@ function getRecuperacionSeguimiento() {
     const controlesPaciente = controlesHosp.filter(c=>c.pacienteId===pid);
     const pendientePaciente = pendientes.find(p=>p.paciente.id===pid);
 
-    // Seguimiento perdido: TRUE si ALGÚN control retrospectivo tuvo proxControl vencido >= 180 días
-    // (no solo el último — un control nuevo no borra que el paciente estuvo perdido)
+    // Seguimiento perdido: el ÚLTIMO control retrospectivo del paciente tiene proxControl vencido >= 180 días.
+    // Si después hubo un control prospectivo (recuperado) o volvió al seguimiento esperado,
+    // la condición de "perdido" sigue vigente hasta que se resuelva — pero si el paciente
+    // ya tiene un último control retrospectivo dentro del plazo, se considera revertido.
     const ctrlsConFecha = controlesPaciente.filter(c => c.fechaControl);
-    const perdidoPre = ctrlsConFecha.some(c =>
-      -diasRestantes(c.proxControl) >= 180 && calcularFase(c) === 'Retrospectivo'
-    );
+    const ctrlsRetro = ctrlsConFecha.filter(c => calcularFase(c) === 'Retrospectivo');
+    const ultimoRetro = ctrlsRetro.length > 0
+      ? ctrlsRetro.reduce((a, b) => (a.fechaControl > b.fechaControl ? a : b))
+      : null;
+    const perdidoPre = ultimoRetro
+      ? -diasRestantes(ultimoRetro.proxControl) >= 180
+      : false;
 
     const tieneControlPost = controlesPaciente.some(c => calcularFase(c)==='Prospectivo');
     // Verificar si el último control tiene proxControl no vencido (dentro del seguimiento esperado)
