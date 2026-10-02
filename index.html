@@ -6306,37 +6306,84 @@ function cerrarSesionPaciente() {
   document.getElementById('login-pac-msg').style.display = 'none';
 }
 
-async function renderTurnoPaciente(controlActivo, pacienteActivo, estado) {
+async function renderTurnoPaciente(controlActivo, pacienteActivo, estado, turnoAnteriorParaCancelar = null) {
   const view = document.getElementById('turno-section');
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   const finHorizonte = new Date(hoy.getTime() + HORIZONTE_TURNOS_DIAS*86400000);
 
-  // Estado 1: no mostrar nada
-  if (estado === 1) {
+  // Buscar turno vigente del paciente: en turnosReservados O en agenda directa del profesional
+  const turnoReservado = turnosReservados.find(t => {
+    if (t.pacienteId !== pacienteActivo.id) return false;
+    const tf = _parseFmt(t.fecha);
+    if (!tf) return false;
+    tf.setHours(0,0,0,0);
+    return tf >= hoy;
+  });
+
+  // Buscar también en agenda directa del profesional (turno asignado sin pasar por turnosReservados)
+  let turnoAgenda = null;
+  for (const [profId, slots] of Object.entries(AGENDAS_PROFESIONALES || {})) {
+    if (!slots || !slots.turnos) continue;
+    const slot = slots.turnos.find(t => {
+      if (t.pacienteId !== pacienteActivo.id) return false;
+      const tf = _parseFmt(t.fecha);
+      if (!tf) return false;
+      tf.setHours(0,0,0,0);
+      return tf >= hoy;
+    });
+    if (slot) { turnoAgenda = { ...slot, profesionalId: profId }; break; }
+  }
+
+  const turnoVigente = turnoReservado || turnoAgenda || (turnoSeleccionadoPaciente ? { ...turnoSeleccionadoPaciente, pacienteId: pacienteActivo.id } : null);
+
+  // Función para renderizar turno en modo lectura (no modificable)
+  const renderTurnoConfirmado = (turno, modoEdicion = false) => {
+    if (modoEdicion) {
+      // Volver al selector
+      turnoSeleccionadoPaciente = null;
+      renderTurnoPaciente(controlActivo, pacienteActivo, estado).catch(e=>console.error('renderTurnoPaciente:',e));
+      return;
+    }
+    const prof = turno.profesionalId ? profesionales.find(p=>p.id===turno.profesionalId) : null;
     view.innerHTML = `
-      <div style="border:0.5px solid var(--mr-border); border-radius:10px; padding:1rem; display:flex; align-items:center; gap:10px;">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--mr-text-muted); flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        <div style="font-size:13px; color:var(--mr-text-muted);">Cuando se acerque la fecha de tu próximo control vas a poder reservar tu turno acá.</div>
+      <div style="background:var(--mr-teal-bg); border-radius:10px; padding:1rem;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div>
+            <div style="font-weight:700; font-size:14px; color:var(--mr-teal-text); margin-bottom:6px;">✓ Turno reservado</div>
+            <div style="font-size:14px; font-weight:600; text-transform:capitalize; color:var(--mr-navy);">${fmtDateLong(turno.fecha)} a las ${turno.hora} hs</div>
+            ${prof ? `<div style="font-size:12px; color:var(--mr-text-muted); margin-top:3px;">${prof.nombre}</div>` : ''}
+            <div style="font-size:12px; color:var(--mr-text-muted); margin-top:2px;">${CONFIG_INSTITUCION.servicio} · ${CONFIG_INSTITUCION.institucion}</div>
+          </div>
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--mr-teal-text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <button id="btn-modificar-turno" style="margin-top:12px; font-size:12px; padding:5px 12px; border:0.5px solid var(--mr-teal-text); border-radius:6px; background:transparent; color:var(--mr-teal-text); cursor:pointer;">Modificar turno</button>
       </div>
     `;
+    document.getElementById('btn-modificar-turno').addEventListener('click', () => {
+      // Solo mostrar el selector — el turno anterior se cancela cuando confirme el nuevo
+      turnoSeleccionadoPaciente = null;
+      renderTurnoPaciente(controlActivo, pacienteActivo, estado, turnoVigente).catch(e=>console.error('renderTurnoPaciente:',e));
+    });
+  };
+
+  // Estado 1: solo mostrar turno si existe (asignado por profesional), sino mensaje de espera
+  if (estado === 1) {
+    if (turnoVigente) {
+      renderTurnoConfirmado(turnoVigente);
+    } else {
+      view.innerHTML = `
+        <div style="border:0.5px solid var(--mr-border); border-radius:10px; padding:1rem; display:flex; align-items:center; gap:10px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--mr-text-muted); flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <div style="font-size:13px; color:var(--mr-text-muted);">Cuando se acerque la fecha de tu próximo control vas a poder reservar tu turno acá.</div>
+        </div>
+      `;
+    }
     return;
   }
 
-  // Estado 2 y 3: mostrar turno confirmado o selector
-  if (turnoSeleccionadoPaciente) {
-    view.innerHTML = `
-      <div style="background:var(--mr-teal-bg); color:var(--mr-teal-text); border-radius:10px; padding:1rem;">
-        <div style="font-weight:700; font-size:14px; margin-bottom:6px;">✓ Turno reservado</div>
-        <div style="font-size:13px; text-transform:capitalize;">${fmtDateLong(turnoSeleccionadoPaciente.fecha)} a las ${turnoSeleccionadoPaciente.hora} hs</div>
-        <div style="font-size:12px; color:var(--mr-teal-text); margin-top:4px;">${CONFIG_INSTITUCION.servicio}</div>
-        <div style="font-size:12px; color:var(--mr-teal-text);">${CONFIG_INSTITUCION.institucion}</div>
-        <button id="btn-cambiar-turno" class="btn-secondary" style="margin-top:10px; font-size:12px; padding:6px 12px;">Cambiar turno</button>
-      </div>
-    `;
-    document.getElementById('btn-cambiar-turno').addEventListener('click', () => {
-      turnoSeleccionadoPaciente = null;
-      renderTurnoPaciente(controlActivo, pacienteActivo, estado).catch(e=>console.error('renderTurnoPaciente:',e));
-    });
+  // Estado 2 y 3: si hay turno vigente, mostrarlo en modo lectura
+  if (turnoVigente) {
+    renderTurnoConfirmado(turnoVigente);
     return;
   }
 
@@ -6429,12 +6476,53 @@ async function renderTurnoPaciente(controlActivo, pacienteActivo, estado) {
 
 
   document.querySelectorAll('.btn-horario').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const _dtP = {pacienteId:pacienteActivo.id, fecha:btn.dataset.fecha, hora:btn.dataset.hora, controlId:controlActivo.id, origen:'online', profesionalId:profesionalSeleccionadoPaciente||''};
-      const _rTP = await reservarTurno_(_dtP);
-      if (!_rTP.ok) { alert(_rTP.error||'Ese horario ya no está disponible.'); renderTurnoPaciente(controlActivo, pacienteActivo, estado); return; }
-      turnoSeleccionadoPaciente = {fecha: btn.dataset.fecha, hora: btn.dataset.hora};
-      renderTurnoPaciente(controlActivo, pacienteActivo, estado).catch(e=>console.error('renderTurnoPaciente:',e));
+    btn.addEventListener('click', () => {
+      const fechaSel = btn.dataset.fecha;
+      const horaSel  = btn.dataset.hora;
+
+      // Marcar visualmente el seleccionado
+      document.querySelectorAll('.btn-horario').forEach(b => b.classList.remove('btn-primary'));
+      btn.classList.add('btn-primary');
+
+      // Mostrar / actualizar panel de confirmación dentro del mismo contenedor
+      let panel = document.getElementById('pac-turno-confirmar');
+      if (!panel) {
+        panel = document.createElement('div');
+        panel.id = 'pac-turno-confirmar';
+        panel.style.cssText = 'margin-top:14px; padding:12px; background:var(--mr-teal-bg); border-radius:8px;';
+        view.querySelector('div').appendChild(panel);
+      }
+      panel.innerHTML = `
+        <div style="font-size:13px; font-weight:600; color:var(--mr-navy); margin-bottom:8px;">
+          Seleccionaste: <span style="text-transform:capitalize;">${fmtDateLong(fechaSel)}</span> a las ${horaSel} hs
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button id="pac-btn-confirmar" class="btn-primary" style="font-size:13px; padding:7px 16px;">Confirmar turno</button>
+          <button id="pac-btn-cancelar-sel" class="btn-secondary" style="font-size:13px; padding:7px 16px;">Cancelar</button>
+        </div>
+      `;
+
+      document.getElementById('pac-btn-confirmar').addEventListener('click', async () => {
+        // Cancelar turno anterior si estaba en modo "modificar"
+        if (turnoAnteriorParaCancelar) {
+          await cancelarTurno_(pacienteActivo.id, turnoAnteriorParaCancelar.fecha, turnoAnteriorParaCancelar.hora);
+        }
+        const _dtP = { pacienteId:pacienteActivo.id, fecha:fechaSel, hora:horaSel, controlId:controlActivo.id, origen:'online', profesionalId:profesionalSeleccionadoPaciente||'' };
+        const _rTP = await reservarTurno_(_dtP);
+        if (!_rTP.ok) { alert(_rTP.error||'Ese horario ya no está disponible.'); renderTurnoPaciente(controlActivo, pacienteActivo, estado); return; }
+        turnoSeleccionadoPaciente = { fecha: fechaSel, hora: horaSel };
+        renderTurnoPaciente(controlActivo, pacienteActivo, estado).catch(e=>console.error('renderTurnoPaciente:',e));
+      });
+
+      document.getElementById('pac-btn-cancelar-sel').addEventListener('click', () => {
+        // Volver a vista de lectura si había turno anterior, o limpiar selección
+        if (turnoAnteriorParaCancelar) {
+          renderTurnoPaciente(controlActivo, pacienteActivo, estado).catch(e=>console.error('renderTurnoPaciente:',e));
+        } else {
+          document.querySelectorAll('.btn-horario').forEach(b => b.classList.remove('btn-primary'));
+          panel.remove();
+        }
+      });
     });
   });
 }
