@@ -6370,7 +6370,8 @@ async function renderTurnoPaciente(controlActivo, pacienteActivo, estado, turnoA
   };
 
   // Estado 1: solo mostrar turno si existe (asignado por profesional), sino mensaje de espera
-  if (estado === 1) {
+  // Excepción: si está en modo modificación (turnoAnteriorParaCancelar), continuar al selector
+  if (estado === 1 && !turnoAnteriorParaCancelar) {
     if (turnoVigente) {
       renderTurnoConfirmado(turnoVigente);
     } else {
@@ -6458,12 +6459,18 @@ async function renderTurnoPaciente(controlActivo, pacienteActivo, estado, turnoA
 
   let html = `
     <div style="border:0.5px solid var(--mr-border); border-radius:10px; padding:1rem;">
-      <div style="font-weight:700; font-size:14px; color:var(--mr-primary); margin-bottom:10px;">Reservá tu turno</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div style="font-weight:700; font-size:14px; color:var(--mr-primary);">Reservá tu turno</div>
+        ${turnoAnteriorParaCancelar ? `<button id="pac-btn-volver-lectura" style="font-size:12px; padding:4px 10px; border:0.5px solid var(--mr-border); border-radius:6px; background:transparent; color:var(--mr-text-muted); cursor:pointer;">← Volver</button>` : ''}
+      </div>
       ${selectorHTML}
   `;
 
   if (opciones.length === 0) {
-    html += `<div style="font-size:13px; color:var(--mr-text-muted);">No hay turnos disponibles en los próximos 21 días. Comunicate con el servicio.</div>`;
+    html += `<div style="font-size:13px; color:var(--mr-text-muted);">${turnoAnteriorParaCancelar ? 'No hay turnos disponibles para modificar tu turno. Comunicate con el servicio.' : 'No hay turnos disponibles en los próximos 21 días. Comunicate con el servicio.'}</div>`;
+    if (turnoAnteriorParaCancelar) {
+      html += `<button id="pac-btn-volver-lectura" style="margin-top:10px; font-size:12px; padding:5px 12px; border:0.5px solid var(--mr-border); border-radius:6px; background:transparent; color:var(--mr-text-muted); cursor:pointer;">← Volver</button>`;
+    }
   } else {
     opciones.forEach((op, i) => {
       html += `
@@ -6480,6 +6487,14 @@ async function renderTurnoPaciente(controlActivo, pacienteActivo, estado, turnoA
 
   html += `</div>`;
   view.innerHTML = html;
+
+  // Botón volver si no hay opciones en modo modificación
+  const _btnVolver = document.getElementById('pac-btn-volver-lectura');
+  if (_btnVolver) {
+    _btnVolver.addEventListener('click', () => {
+      renderTurnoPaciente(controlActivo, pacienteActivo, estado).catch(e=>console.error(e));
+    });
+  }
 
   // Listener selector de profesional
   const _selProf = document.getElementById('pac-sel-prof');
