@@ -6334,7 +6334,10 @@ async function renderTurnoPaciente(controlActivo, pacienteActivo, estado, turnoA
     if (slot) { turnoAgenda = { ...slot, profesionalId: profId }; break; }
   }
 
-  const turnoVigente = turnoReservado || turnoAgenda || (turnoSeleccionadoPaciente ? { ...turnoSeleccionadoPaciente, pacienteId: pacienteActivo.id } : null);
+  // En modo modificación (turnoAnteriorParaCancelar != null) ignorar turnoVigente para mostrar el selector
+  const turnoVigente = turnoAnteriorParaCancelar
+    ? null
+    : (turnoReservado || turnoAgenda || (turnoSeleccionadoPaciente ? { ...turnoSeleccionadoPaciente, pacienteId: pacienteActivo.id } : null));
 
   // Función para renderizar turno en modo lectura (no modificable)
   const renderTurnoConfirmado = (turno, modoEdicion = false) => {
@@ -6350,7 +6353,7 @@ async function renderTurnoPaciente(controlActivo, pacienteActivo, estado, turnoA
         <div style="display:flex; justify-content:space-between; align-items:flex-start;">
           <div>
             <div style="font-weight:700; font-size:14px; color:var(--mr-teal-text); margin-bottom:6px;">✓ Turno reservado</div>
-            <div style="font-size:14px; font-weight:600; text-transform:capitalize; color:var(--mr-navy);">${fmtDateLong(turno.fecha)} a las ${turno.hora} hs</div>
+            <div style="font-size:14px; font-weight:600; color:var(--mr-navy);">${fmtDate(turno.fecha)} a las ${turno.hora} hs</div>
             ${prof ? `<div style="font-size:12px; color:var(--mr-text-muted); margin-top:3px;">${prof.nombre}</div>` : ''}
             <div style="font-size:12px; color:var(--mr-text-muted); margin-top:2px;">${CONFIG_INSTITUCION.servicio} · ${CONFIG_INSTITUCION.institucion}</div>
           </div>
