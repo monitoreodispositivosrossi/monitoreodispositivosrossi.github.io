@@ -662,6 +662,12 @@ async function guardarNuevoDispositivo_(pacienteId, datos, esRecambio) {
       await sbUpdate('dispositivos','id=eq.'+activo.id,{activo:false, fecha_recambio:datos.fechaImplante||null});
       activo.activo = false; activo.fechaRecambio = datos.fechaImplante||'';
     }
+    // Al hacer un recambio, el paciente sale automáticamente de ERI
+    const ctrlsConEri = controles.filter(c => c.pacienteId === pacienteId && c.enEri);
+    for (const ctrl of ctrlsConEri) {
+      await actualizarControl_(ctrl.id, { enEri: false, fechaEri: null });
+      ctrl.enEri = false; ctrl.fechaEri = null;
+    }
   }
   const row = { id, paciente_id:pacienteId, tipo:datos.tipo, marca:datos.marca,
     modelo:datos.modelo||'', serie:datos.serie||'', subtipo:datos.subtipo||'',
