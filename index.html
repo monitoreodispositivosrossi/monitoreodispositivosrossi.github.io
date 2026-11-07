@@ -5954,7 +5954,7 @@ function getDatosInvestigacion() {
     const tipo = disp ? (TIPOS[disp.tipo] || {nombre:disp.tipo||'?',lapso:12}) : null;
     const riesgo = calcularRiesgo(c);
     // Determinar si es el primer control del dispositivo (sin referencia previa)
-    const ctrlsAnteriores = controles.filter(x => x.id !== c.id && x.pacienteId===c.pacienteId && x.dispositivoId===c.dispositivoId && diasRestantes(x.fechaControl) < diasRestantes(c.fechaControl));
+    const ctrlsAnteriores = controles.filter(x => x.id !== c.id && x.pacienteId===c.pacienteId && x.dispositivoId===c.dispositivoId && (x.fechaControl||'') < (c.fechaControl||''));
     const esPrimerControl = ctrlsAnteriores.length === 0;
     const retrasoDias    = esPrimerControl ? null : calcularRetrasoDias(c);
     const retrasoAjustado= esPrimerControl ? null : calcularRetrasoAjustado(c);
