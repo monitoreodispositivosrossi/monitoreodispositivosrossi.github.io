@@ -5966,7 +5966,7 @@ function getDatosInvestigacion() {
       sexo: pac.sexo || '-',
       edad: calcularEdad(pac.fechaNacimiento) ?? '-',
       tipoDispositivo: tipo?.nombre || '-',
-      fase: calcularFase(c),
+      fase: c.fechaProgramada < getFechaImplStr(pac?.hospitalId) ? 'Retrospectivo' : 'Prospectivo',
       faseRetraso: c.fechaProgramada < getFechaImplStr(pac?.hospitalId) ? 'Retrospectivo' : 'Prospectivo',
       fechaProgramada: c.fechaProgramada,
       fechaRealizada: c.fechaControl,
