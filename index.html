@@ -5998,9 +5998,9 @@ function getDatosInvestigacion() {
       edad: calcularEdad(p.paciente.fechaNacimiento) ?? '-',
       tipoDispositivo: (TIPOS[p.dispositivo.tipo] || {nombre:p.dispositivo.tipo||'?', lapso:12}).nombre,
       fase: p.fase,
+      faseRetraso: p.fase,
       fechaProgramada: p.fechaProgramada,
       esPrimerControl: p.diasAtraso <= 30, // reutilizamos para mostrar '-' en retraso
-      fechaProgramada: p.fechaProgramada,
       retrasoDias: p.diasAtraso > 30 ? p.diasAtraso : null,
       retrasoAjustado: p.diasAtraso > 30 ? p.diasAtraso : null,
       adherente: p.diasAtraso > 30 ? 'No' : '-',
