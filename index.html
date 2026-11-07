@@ -1902,7 +1902,7 @@ function renderDash() {
   let html = `
     <h3>Panel de control</h3>
     <div class="stat-grid">
-      <div class="stat-card"><div class="stat-label">Pacientes registrados</div><div class="stat-num">${getPacientesHospital().filter(p=>p.estado==='Activo').length}</div></div>
+      <div class="stat-card"><div class="stat-label">Pacientes registrados</div><div class="stat-num">${getPacientesHospital().length}</div></div>
       <div class="stat-card"><div class="stat-label">Controles registrados</div><div class="stat-num">${controles.filter(c=>getPacientesHospital().some(p=>p.id===c.pacienteId)).length}</div></div>
       <div class="stat-card"><div class="stat-label">Recordatorios esta semana</div><div class="stat-num">${recordatorios.length}</div></div>
       <div class="stat-card"><div class="stat-label">Con turno asignado</div><div class="stat-num">${conTurno.length}</div></div>
