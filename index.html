@@ -5792,22 +5792,24 @@ function renderFlujoPacientes() {
   const codigosAptos = new Set(datos.filter(d => d.aptoAnalisis === 'Sí').map(d => d.codigo));
   const pacAptos = pacHosp.filter(p => codigosAptos.has(p.codigo));
 
-  // Retro/prosp para cada nodo — fase del paciente determina la clasificación
-  const pacRetro = new Set(pacHosp.filter(p => p.fase === 'Retrospectivo').map(p => p.id));
-  const pacProsp = new Set(pacHosp.filter(p => p.fase === 'Prospectivo').map(p => p.id));
-  // Pacientes con controles por fase
-  const conControlesRetro = [...conControles].filter(id => pacRetro.has(id)).length;
-  const conControlesProsp = [...conControles].filter(id => pacProsp.has(id)).length;
+  // Retro/prosp — clasificar usando calcularFase() sobre controles (la fase está en el control, no en el paciente)
+  const ctrlsHosp = controles.filter(c => pacHosp.some(p => p.id === c.pacienteId));
+  // Paciente es "retro" si tiene al menos un control retro, "prosp" si tiene al menos uno prosp
+  const pacConRetro = new Set(ctrlsHosp.filter(c => calcularFase(c) === 'Retrospectivo').map(c => c.pacienteId));
+  const pacConProsp = new Set(ctrlsHosp.filter(c => calcularFase(c) === 'Prospectivo').map(c => c.pacienteId));
+  // Pacientes con controles por fase (un paciente puede tener ambas fases, se cuenta en la que predomina)
+  const conControlesRetro = [...conControles].filter(id => pacConRetro.has(id) && !pacConProsp.has(id)).length;
+  const conControlesProsp = [...conControles].filter(id => pacConProsp.has(id)).length;
   // Controles totales (136) por fase
-  const ctrlRetro136 = controles.filter(c => pacRetro.has(c.pacienteId) && pacHosp.some(p=>p.id===c.pacienteId)).length;
-  const ctrlProsp136 = controles.filter(c => pacProsp.has(c.pacienteId) && pacHosp.some(p=>p.id===c.pacienteId)).length;
+  const ctrlRetro136 = ctrlsHosp.filter(c => calcularFase(c) === 'Retrospectivo').length;
+  const ctrlProsp136 = ctrlsHosp.filter(c => calcularFase(c) === 'Prospectivo').length;
   // Pacientes aptos por fase
   const idAptos = new Set(pacAptos.map(p => p.id));
-  const aptosRetro = [...idAptos].filter(id => pacRetro.has(id)).length;
-  const aptosProsp = [...idAptos].filter(id => pacProsp.has(id)).length;
-  // Controles registrados (127) por fase
-  const ctrl127Retro = realizados.filter(d => d.fase === 'Retrospectivo').length + pendientes.filter(d => d.fase === 'Retrospectivo').length;
-  const ctrl127Prosp = realizados.filter(d => d.fase === 'Prospectivo').length + pendientes.filter(d => d.fase === 'Prospectivo').length;
+  const aptosRetro = [...idAptos].filter(id => pacConRetro.has(id) && !pacConProsp.has(id)).length;
+  const aptosProsp = [...idAptos].filter(id => pacConProsp.has(id)).length;
+  // Controles registrados (127) por fase — ya tienen .fase calculada en getDatosInvestigacion
+  const ctrl127Retro = realizados.filter(d => d.faseRetraso === 'Retrospectivo').length + pendientes.filter(d => d.faseRetraso === 'Retrospectivo').length;
+  const ctrl127Prosp = realizados.filter(d => d.faseRetraso === 'Prospectivo').length + pendientes.filter(d => d.faseRetraso === 'Prospectivo').length;
   const nF = pacAptos.filter(p => p.sexo === 'F' || p.sexo === 'femenino').length;
   const nM = pacAptos.filter(p => p.sexo === 'M' || p.sexo === 'masculino').length;
   const edadesUsar = pacAptos.map(p => calcularEdad(p.fechaNacimiento)).filter(e => e !== null && e > 0);
@@ -5818,7 +5820,7 @@ function renderFlujoPacientes() {
   const maxEdad = nEdad ? Math.max(...edadesUsar) : 0;
 
   // Altura fija compartida por nodos y cajas de excluidos
-  const NODE_H = '100px';
+  const NODE_H = '115px';
   const EXCL_H = '90px';
 
   // Píldoras retro/prosp reutilizables
@@ -5828,20 +5830,23 @@ function renderFlujoPacientes() {
       <div style="background:${teal?'#fff':'#fff'};border:1px solid ${teal?'#1D9E75':'#B8CFD8'};border-radius:5px;padding:2px 6px;font-size:10px;color:${teal?'#085041':'#0F3D5C'};"><span style="color:#9BAEBB;font-size:9px;">P </span><b>${p}</b></div>
     </div>`;
 
-  // Nodo principal — título, número y pills en zonas de altura fija para alinear entre nodos
-  const nodo = (label, num, teal=false, r=null, p=null) => `
+  // Nodo principal — título, número, pills y subtexto en zonas fijas
+  const nodo = (label, num, teal=false, r=null, p=null, sub='') => `
     <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
       <div style="
-        width:148px;height:${NODE_H};border-radius:10px;padding:10px 10px 8px;text-align:center;
+        width:148px;height:${NODE_H};border-radius:10px;padding:8px 10px 7px;text-align:center;
         display:flex;flex-direction:column;align-items:center;justify-content:space-between;box-sizing:border-box;
         background:${teal?'#E1F5EE':'#EBF2F7'};
         border:${teal?'2px solid #1D9E75':'1.5px solid #B8CFD8'};
       ">
-        <div style="height:30px;display:flex;align-items:center;justify-content:center;">
+        <div style="height:28px;display:flex;align-items:center;justify-content:center;">
           <div style="font-size:11px;font-weight:600;color:${teal?'#085041':'#0F3D5C'};line-height:1.3;">${label}</div>
         </div>
-        <div style="font-size:24px;font-weight:800;color:${teal?'#085041':'#0F3D5C'};line-height:1;">${num}</div>
-        <div style="height:22px;display:flex;align-items:center;justify-content:center;">
+        <div style="font-size:22px;font-weight:800;color:${teal?'#085041':'#0F3D5C'};line-height:1;">${num}</div>
+        <div style="height:16px;display:flex;align-items:center;justify-content:center;">
+          ${sub ? `<div style="font-size:10px;font-weight:600;color:${teal?'#1D7A5F':'#4A7A99'};">${sub}</div>` : ''}
+        </div>
+        <div style="height:20px;display:flex;align-items:center;justify-content:center;">
           ${r !== null ? pills(r, p, teal) : ''}
         </div>
       </div>
@@ -5882,7 +5887,7 @@ function renderFlujoPacientes() {
         ${col(nodo('Pacientes registrados', totalRegistrados))}
         ${flechaH}
         ${col(
-          nodo('Pacientes con controles', nConControles, false, conControlesRetro, conControlesProsp),
+          nodo('Pacientes con controles', nConControles, false, conControlesRetro, conControlesProsp, `${totalControlesConControles} controles`),
           exclBox(nSinControles, [`Sin controles cargados`])
         )}
         ${flechaH}
