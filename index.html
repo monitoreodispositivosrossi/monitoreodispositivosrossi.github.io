@@ -5852,7 +5852,7 @@ function renderFlujoPacientes() {
   return `
     <div style="margin-bottom:1.75rem;">
       <div style="font-size:13px;font-weight:700;color:var(--mr-primary);margin-bottom:1.25rem;">Flujo de selección de pacientes</div>
-      <div id="flujo-wrapper" style="display:inline-block;max-width:100%;vertical-align:top;">
+      <div id="flujo-wrapper" style="display:block;">
       <div style="display:flex;flex-direction:row;align-items:flex-start;overflow-x:auto;padding-bottom:8px;gap:0;" id="flujo-nodos">
 
         ${col(nodo('Pacientes registrados', totalRegistrados))}
@@ -5884,7 +5884,7 @@ function renderFlujoPacientes() {
       </div><!-- /flujo-nodos -->
 
       <!-- Recuadro características de la muestra — mismo ancho que el diagrama -->
-      <div id="flujo-caracteristicas" style="margin-top:1rem;border:1.5px solid #B8CFD8;border-radius:10px;padding:14px 18px;background:#F8FAFC;box-sizing:border-box;width:100%;">
+      <div id="flujo-caracteristicas" style="margin-top:1rem;border:1.5px solid #B8CFD8;border-radius:10px;padding:14px 18px;background:#F8FAFC;box-sizing:border-box;">
         <div style="font-size:11px;font-weight:700;color:#6B8499;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Características de la muestra (n=${nAptos} pacientes aptos)</div>
         <div style="display:flex;justify-content:space-around;align-items:flex-start;flex-wrap:wrap;gap:1rem;">
 
@@ -6078,6 +6078,17 @@ function renderInvestigacion() {
 
   view.innerHTML = html;
   document.getElementById('seccion-flujo-pacientes').innerHTML = renderFlujoPacientes();
+  // Igualar ancho del recuadro al contenido real del diagrama (scrollWidth ignora overflow:auto)
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      const nodos = document.getElementById('flujo-nodos');
+      const caract = document.getElementById('flujo-caracteristicas');
+      if (nodos && caract) {
+        const w = nodos.scrollWidth;
+        caract.style.width = w + 'px';
+      }
+    });
+  });
   renderIndicadores();
   renderTablaInvestigacion();
   renderTablaRecuperacion();
