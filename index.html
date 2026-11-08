@@ -5831,13 +5831,14 @@ function renderFlujoPacientes() {
     <svg width="32" height="16" viewBox="0 0 32 16"><line x1="0" y1="8" x2="26" y2="8" stroke="#B0C4D0" stroke-width="1.5"/><polygon points="26,4 32,8 26,12" fill="#B0C4D0"/></svg>
   </div>`;
 
-  // Caja de excluidos (cuelga hacia abajo desde el nodo, con flecha ↓)
-  const exclBox = (titulo, items) => `
+  // Caja de excluidos: título EXCLUIDOS + número grande + detalle
+  // n=null → no muestra número grande (para caja de texto libre)
+  const exclBox = (n, items) => `
     <div style="display:flex;flex-direction:column;align-items:center;margin-top:8px;">
       <svg width="2" height="18" viewBox="0 0 2 18"><line x1="1" y1="0" x2="1" y2="14" stroke="#B0C4D0" stroke-width="1.5"/><polygon points="-2,12 2,12 0,18" fill="#B0C4D0"/></svg>
       <div style="background:#F8FAFC;border:1.5px dashed #B8CFD8;border-radius:8px;padding:8px 12px;min-width:130px;text-align:left;">
-        <div style="font-size:10px;font-weight:700;color:#9BAEBB;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:3px;">Excluidos</div>
-        <div style="font-size:11px;font-weight:600;color:#1F2937;margin-bottom:3px;">${titulo}</div>
+        <div style="font-size:10px;font-weight:700;color:#9BAEBB;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Excluidos</div>
+        ${n !== null ? `<div style="font-size:18px;font-weight:700;color:#1F2937;line-height:1;margin-bottom:5px;">${n}</div>` : ''}
         ${items.map(i=>`<div style="font-size:11px;color:#6B8499;">· ${i}</div>`).join('')}
       </div>
     </div>`;
@@ -5859,12 +5860,12 @@ function renderFlujoPacientes() {
         ${flechaH}
         ${col(
           nodo('Con controles en DB', nConControles),
-          exclBox(`Sin controles: ${nSinControles}`, ['Sin seguimiento iniciado'])
+          exclBox(null, [`Sin controles cargados: ${nSinControles}`])
         )}
         ${flechaH}
         ${col(
           nodo('Pacientes aptos', nAptos, true),
-          exclBox(`Por estado: ${nExcluidosEstado}`, [
+          exclBox(nExcluidosEstado, [
             `Fallecidos: ${fallecidos}`,
             `No localizables: ${noLocalizables}`
           ])
@@ -5872,7 +5873,7 @@ function renderFlujoPacientes() {
         ${flechaH}
         ${col(
           nodo('Controles registrados', totalControlesAptos),
-          exclBox(`Del análisis: ${nExcluidosAnalisis}`, [
+          exclBox(nExcluidosAnalisis, [
             `1er control (sin ref.): ${primeros}`,
             `Pendiente no vencido: ${pendientesNoVencidos}`
           ])
