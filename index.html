@@ -5800,45 +5800,48 @@ function renderFlujoPacientes() {
   const minEdad = nEdad ? Math.min(...edadesUsar) : 0;
   const maxEdad = nEdad ? Math.max(...edadesUsar) : 0;
 
-  // Nodo principal (cadena horizontal) — altura fija para alinear todos
+  // Altura fija compartida por nodos y cajas de excluidos
+  const NODE_H = '100px';
+  const EXCL_H = '90px';
+
+  // Nodo principal
   const nodo = (label, num, teal=false, sub='') => `
     <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
       <div style="
-        width:140px;min-height:80px;border-radius:10px;padding:14px 10px;text-align:center;
-        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        width:140px;height:${NODE_H};border-radius:10px;padding:12px 10px;text-align:center;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;box-sizing:border-box;
         background:${teal?'#E1F5EE':'#EBF2F7'};
         border:${teal?'2px solid #1D9E75':'1.5px solid #B8CFD8'};
       ">
-        <div style="font-size:11px;font-weight:600;color:${teal?'#085041':'#0F3D5C'};line-height:1.3;margin-bottom:5px;">${label}</div>
+        <div style="font-size:11px;font-weight:600;color:${teal?'#085041':'#0F3D5C'};line-height:1.3;margin-bottom:4px;">${label}</div>
         <div style="font-size:24px;font-weight:800;color:${teal?'#085041':'#0F3D5C'};">${num}</div>
-        ${sub ? `<div style="font-size:10px;color:${teal?'#1D7A5F':'#6B8499'};margin-top:4px;">${sub}</div>` : ''}
+        ${sub ? `<div style="font-size:12px;font-weight:600;color:${teal?'#1D7A5F':'#4A7A99'};margin-top:4px;">${sub}</div>` : ''}
       </div>
     </div>`;
 
-  // Nodo final con subetiquetas Retro/Prosp — misma altura mínima que los otros
+  // Nodo final con subetiquetas Retro/Prosp
   const nodoFinal = () => `
     <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
-      <div style="width:160px;min-height:80px;border-radius:10px;padding:14px 10px;text-align:center;background:#E1F5EE;border:2px solid #1D9E75;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-        <div style="font-size:11px;font-weight:600;color:#085041;margin-bottom:5px;">Controles analizados</div>
+      <div style="width:160px;height:${NODE_H};border-radius:10px;padding:12px 10px;text-align:center;background:#E1F5EE;border:2px solid #1D9E75;display:flex;flex-direction:column;align-items:center;justify-content:center;box-sizing:border-box;">
+        <div style="font-size:11px;font-weight:600;color:#085041;margin-bottom:4px;">Controles analizados</div>
         <div style="font-size:24px;font-weight:800;color:#085041;">${totalAnalizados}</div>
-        <div style="margin-top:8px;display:flex;gap:6px;justify-content:center;">
+        <div style="margin-top:6px;display:flex;gap:6px;justify-content:center;">
           <div style="background:#fff;border:1px solid #1D9E75;border-radius:6px;padding:3px 8px;font-size:11px;color:#085041;"><span style="color:#6B8499;font-size:10px;">Retro </span><b>${retro}</b></div>
           <div style="background:#fff;border:1px solid #1D9E75;border-radius:6px;padding:3px 8px;font-size:11px;color:#085041;"><span style="color:#6B8499;font-size:10px;">Prosp </span><b>${prosp}</b></div>
         </div>
       </div>
     </div>`;
 
-  // Flecha horizontal → centrada en la altura del nodo (min-height:80px → mitad = 40px + padding inicial)
-  const flechaH = `<div style="display:flex;align-items:flex-start;flex-shrink:0;padding:0 4px;padding-top:44px;">
+  // Flecha horizontal centrada en la altura del nodo
+  const flechaH = `<div style="display:flex;align-items:flex-start;flex-shrink:0;padding:0 4px;padding-top:42px;">
     <svg width="32" height="16" viewBox="0 0 32 16"><line x1="0" y1="8" x2="26" y2="8" stroke="#B0C4D0" stroke-width="1.5"/><polygon points="26,4 32,8 26,12" fill="#B0C4D0"/></svg>
   </div>`;
 
-  // Caja de excluidos: título EXCLUIDOS + número grande + detalle
-  // n=null → no muestra número grande (para caja de texto libre)
+  // Caja de excluidos — misma altura fija
   const exclBox = (n, items) => `
     <div style="display:flex;flex-direction:column;align-items:center;margin-top:8px;">
       <svg width="2" height="18" viewBox="0 0 2 18"><line x1="1" y1="0" x2="1" y2="14" stroke="#B0C4D0" stroke-width="1.5"/><polygon points="-2,12 2,12 0,18" fill="#B0C4D0"/></svg>
-      <div style="background:#F8FAFC;border:1.5px dashed #B8CFD8;border-radius:8px;padding:8px 12px;min-width:130px;text-align:left;">
+      <div style="background:#F8FAFC;border:1.5px dashed #B8CFD8;border-radius:8px;padding:8px 12px;min-width:130px;height:${EXCL_H};box-sizing:border-box;text-align:left;display:flex;flex-direction:column;justify-content:flex-start;">
         <div style="font-size:10px;font-weight:700;color:#9BAEBB;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px;">Excluidos</div>
         ${n !== null ? `<div style="font-size:18px;font-weight:700;color:#1F2937;line-height:1;margin-bottom:5px;">${n}</div>` : ''}
         ${items.map(i=>`<div style="font-size:11px;color:#6B8499;">· ${i}</div>`).join('')}
