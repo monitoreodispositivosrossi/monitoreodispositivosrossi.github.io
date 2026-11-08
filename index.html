@@ -6078,14 +6078,18 @@ function renderInvestigacion() {
 
   view.innerHTML = html;
   document.getElementById('seccion-flujo-pacientes').innerHTML = renderFlujoPacientes();
-  // Igualar ancho del recuadro al contenido real del diagrama (scrollWidth ignora overflow:auto)
+  // Igualar ancho del recuadro sumando los anchos reales de los hijos del diagrama
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       const nodos = document.getElementById('flujo-nodos');
       const caract = document.getElementById('flujo-caracteristicas');
       if (nodos && caract) {
-        const w = nodos.scrollWidth;
-        caract.style.width = w + 'px';
+        // Suma el ancho de cada hijo directo (nodos + flechas)
+        let totalW = 0;
+        for (const child of nodos.children) {
+          totalW += child.getBoundingClientRect().width;
+        }
+        if (totalW > 0) caract.style.width = Math.ceil(totalW) + 'px';
       }
     });
   });
