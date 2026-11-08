@@ -5779,7 +5779,7 @@ function renderFlujoPacientes() {
   // Pacientes aptos = con controles, activos y con consentimiento
   const pacientesAptosCodigos = new Set(
     pacConControles
-      .filter(p => p.estado === 'Activo' && p.consentimiento === true)
+      .filter(p => p.estado === 'Activo')
       .map(p => p.codigo)
   );
   // Datos filtrados solo a pacientes aptos (para el nodo "Controles registrados")
@@ -6240,8 +6240,8 @@ function getDatosInvestigacion() {
       motivos: riesgo.motivos.join(' | '),
       seguimientoPerdido: esSeguimientoPerdido(c) ? 'Sí' : 'No',
       accion: accion ? `${accion.tipo} - ${accion.resultado}` : '-',
-      aptoAnalisis: (incompleto.length===0 && pac.estado==='Activo' && pac.consentimiento===true) ? 'Sí' : 'No',
-      motivoExclusion: incompleto.length ? `Faltan: ${incompleto.join(', ')}` : (pac.estado!=='Activo' ? `Paciente ${pac.estado}` : ''),
+      aptoAnalisis: pac.estado==='Activo' ? 'Sí' : 'No',
+      motivoExclusion: pac.estado!=='Activo' ? `Paciente ${pac.estado}` : '',
       fechaCarga: c.fechaCarga || ''
     };
   });
@@ -6270,8 +6270,8 @@ function getDatosInvestigacion() {
       motivos: riesgo.motivos.join(' | '),
       seguimientoPerdido: p.seguimientoPerdido ? 'Sí' : 'No',
       accion: accion ? `${accion.tipo} - ${accion.resultado}` : '-',
-      aptoAnalisis: (incompleto.length===0 && p.paciente.estado==='Activo' && p.paciente.consentimiento===true) ? 'Sí' : 'No',
-      motivoExclusion: incompleto.length ? `Faltan: ${incompleto.join(', ')}` : (p.paciente.estado!=='Activo' ? `Paciente ${p.paciente.estado}` : ''),
+      aptoAnalisis: p.paciente.estado==='Activo' ? 'Sí' : 'No',
+      motivoExclusion: p.paciente.estado!=='Activo' ? `Paciente ${p.paciente.estado}` : '',
       fechaCarga: ultimo.fechaCarga || ''
     };
   });
