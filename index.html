@@ -5860,7 +5860,7 @@ function renderFlujoPacientes() {
         ${flechaH}
         ${col(
           nodo('Con controles en DB', nConControles),
-          exclBox(null, [`Sin controles cargados: ${nSinControles}`])
+          exclBox(nSinControles, [`Sin controles cargados`])
         )}
         ${flechaH}
         ${col(
