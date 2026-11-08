@@ -5790,10 +5790,9 @@ function renderFlujoPacientes() {
   const todosRealizados = datosAptos.filter(d => d.tipoRegistro === 'Realizado');
   const todosPendientes = datosAptos.filter(d => d.tipoRegistro === 'Pendiente');
   const totalControlesAptos = todosRealizados.length + todosPendientes.length;
-  const nNoAptos = datosAptos.filter(d => d.aptoAnalisis === 'No').length;
   const primeros = realizados.filter(d => d.adherente === '-').length;
   const pendientesNoVencidos = pendientes.filter(d => !d.retrasoDias || d.retrasoDias <= 30).length;
-  const nExcluidosAnalisis = nNoAptos + primeros + pendientesNoVencidos;
+  const nExcluidosAnalisis = primeros + pendientesNoVencidos;
 
   const ind = calcularIndicadores();
   const retro = ind.fases['Retrospectivo'].totalAdherencia;
@@ -5914,7 +5913,6 @@ function renderFlujoPacientes() {
         ${col(
           nodo('Controles registrados', totalControlesAptos, false, ctrl127Retro, ctrl127Prosp),
           exclBox(nExcluidosAnalisis, [
-            `No aptos: ${nNoAptos}`,
             `1er control (sin ref.): ${primeros}`,
             `Pendiente no vencido: ${pendientesNoVencidos}`
           ])
