@@ -1751,7 +1751,7 @@ function getControlesPendientes() {
         fechaProgramada: proxFecha,
         diasAtraso,
         seguimientoPerdido: diasAtraso >= 180,
-        fase: proxFecha < getFechaImpl(pac.hospitalId) ? 'Retrospectivo' : 'Prospectivo'
+        fase: calcularFase(ultimo)
       });
     }
   });
