@@ -5852,7 +5852,8 @@ function renderFlujoPacientes() {
   return `
     <div style="margin-bottom:1.75rem;">
       <div style="font-size:13px;font-weight:700;color:var(--mr-primary);margin-bottom:1.25rem;">Flujo de selección de pacientes</div>
-      <div style="display:flex;flex-direction:row;align-items:flex-start;overflow-x:auto;padding-bottom:8px;gap:0;">
+      <div id="flujo-wrapper" style="display:inline-block;min-width:0;">
+      <div style="display:flex;flex-direction:row;align-items:flex-start;overflow-x:auto;padding-bottom:8px;gap:0;" id="flujo-nodos">
 
         ${col(nodo('Pacientes registrados', totalRegistrados))}
         ${flechaH}
