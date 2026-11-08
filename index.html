@@ -5787,11 +5787,12 @@ function renderFlujoPacientes() {
   const prosp = ind.fases['Prospectivo'].totalAdherencia;
   const totalAnalizados = retro + prosp;
 
-  // Nodo principal (cadena horizontal)
+  // Nodo principal (cadena horizontal) — altura fija para alinear todos
   const nodo = (label, num, teal=false) => `
     <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
       <div style="
-        width:140px;border-radius:10px;padding:14px 10px;text-align:center;
+        width:140px;min-height:80px;border-radius:10px;padding:14px 10px;text-align:center;
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
         background:${teal?'#E1F5EE':'#EBF2F7'};
         border:${teal?'2px solid #1D9E75':'1.5px solid #B8CFD8'};
       ">
@@ -5800,10 +5801,10 @@ function renderFlujoPacientes() {
       </div>
     </div>`;
 
-  // Nodo final con subetiquetas Retro/Prosp
+  // Nodo final con subetiquetas Retro/Prosp — misma altura mínima que los otros
   const nodoFinal = () => `
     <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
-      <div style="width:160px;border-radius:10px;padding:14px 10px;text-align:center;background:#E1F5EE;border:2px solid #1D9E75;">
+      <div style="width:160px;min-height:80px;border-radius:10px;padding:14px 10px;text-align:center;background:#E1F5EE;border:2px solid #1D9E75;display:flex;flex-direction:column;align-items:center;justify-content:center;">
         <div style="font-size:11px;font-weight:600;color:#085041;margin-bottom:5px;">Controles analizados</div>
         <div style="font-size:24px;font-weight:800;color:#085041;">${totalAnalizados}</div>
         <div style="margin-top:8px;display:flex;gap:6px;justify-content:center;">
@@ -5813,8 +5814,8 @@ function renderFlujoPacientes() {
       </div>
     </div>`;
 
-  // Flecha horizontal →
-  const flechaH = `<div style="display:flex;align-items:center;flex-shrink:0;padding:0 4px;padding-top:14px;">
+  // Flecha horizontal → centrada en la altura del nodo (min-height:80px → mitad = 40px + padding inicial)
+  const flechaH = `<div style="display:flex;align-items:flex-start;flex-shrink:0;padding:0 4px;padding-top:44px;">
     <svg width="32" height="16" viewBox="0 0 32 16"><line x1="0" y1="8" x2="26" y2="8" stroke="#B0C4D0" stroke-width="1.5"/><polygon points="26,4 32,8 26,12" fill="#B0C4D0"/></svg>
   </div>`;
 
