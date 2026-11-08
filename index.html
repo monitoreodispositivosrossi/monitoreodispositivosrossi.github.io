@@ -5776,13 +5776,21 @@ function renderFlujoPacientes() {
   const nExcluidosEstado = fallecidos + noLocalizables;
   const nAptos = nConControles - nExcluidosEstado;
 
-  const realizados = datos.filter(d => d.tipoRegistro === 'Realizado' && d.aptoAnalisis === 'Sí');
-  const pendientes = datos.filter(d => d.tipoRegistro === 'Pendiente' && d.aptoAnalisis === 'Sí');
-  // Todos los controles (aptos y no aptos) para el nodo "Controles registrados"
-  const todosRealizados = datos.filter(d => d.tipoRegistro === 'Realizado');
-  const todosPendientes = datos.filter(d => d.tipoRegistro === 'Pendiente');
+  // Pacientes aptos = con controles, activos y con consentimiento
+  const pacientesAptosCodigos = new Set(
+    pacConControles
+      .filter(p => p.estado === 'Activo' && p.consentimiento === true)
+      .map(p => p.codigo)
+  );
+  // Datos filtrados solo a pacientes aptos (para el nodo "Controles registrados")
+  const datosAptos = datos.filter(d => pacientesAptosCodigos.has(d.codigo));
+
+  const realizados = datosAptos.filter(d => d.tipoRegistro === 'Realizado' && d.aptoAnalisis === 'Sí');
+  const pendientes = datosAptos.filter(d => d.tipoRegistro === 'Pendiente' && d.aptoAnalisis === 'Sí');
+  const todosRealizados = datosAptos.filter(d => d.tipoRegistro === 'Realizado');
+  const todosPendientes = datosAptos.filter(d => d.tipoRegistro === 'Pendiente');
   const totalControlesAptos = todosRealizados.length + todosPendientes.length;
-  const nNoAptos = datos.filter(d => d.aptoAnalisis === 'No').length;
+  const nNoAptos = datosAptos.filter(d => d.aptoAnalisis === 'No').length;
   const primeros = realizados.filter(d => d.adherente === '-').length;
   const pendientesNoVencidos = pendientes.filter(d => !d.retrasoDias || d.retrasoDias <= 30).length;
   const nExcluidosAnalisis = nNoAptos + primeros + pendientesNoVencidos;
@@ -5811,7 +5819,7 @@ function renderFlujoPacientes() {
   const idAptos = new Set(pacAptos.map(p => p.id));
   const aptosRetro = [...idAptos].filter(id => pacConRetro.has(id) && !pacConProsp.has(id)).length;
   const aptosProsp = [...idAptos].filter(id => pacConProsp.has(id)).length;
-  // Controles registrados por fase — todos (aptos y no aptos)
+  // Controles registrados por fase — todos los de pacientes aptos (aptos y no aptos para análisis)
   const ctrl127Retro = todosRealizados.filter(d => d.faseRetraso === 'Retrospectivo').length + todosPendientes.filter(d => d.faseRetraso === 'Retrospectivo').length;
   const ctrl127Prosp = todosRealizados.filter(d => d.faseRetraso === 'Prospectivo').length + todosPendientes.filter(d => d.faseRetraso === 'Prospectivo').length;
   const nF = pacAptos.filter(p => p.sexo === 'F' || p.sexo === 'femenino').length;
