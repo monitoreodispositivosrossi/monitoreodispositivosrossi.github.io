@@ -5770,6 +5770,7 @@ function renderFlujoPacientes() {
   const nSinControles = totalRegistrados - nConControles;
 
   const pacConControles = pacHosp.filter(p => conControles.has(p.id));
+  const totalControlesConControles = controles.filter(c => pacHosp.some(p => p.id === c.pacienteId)).length;
   const fallecidos = pacConControles.filter(p => p.estado === 'fallecido' || p.estado === 'Fallecido').length;
   const noLocalizables = pacConControles.filter(p => p.estado === 'no_localizable' || p.estado === 'No localizable').length;
   const nExcluidosEstado = fallecidos + noLocalizables;
@@ -5800,7 +5801,7 @@ function renderFlujoPacientes() {
   const maxEdad = nEdad ? Math.max(...edadesUsar) : 0;
 
   // Nodo principal (cadena horizontal) — altura fija para alinear todos
-  const nodo = (label, num, teal=false) => `
+  const nodo = (label, num, teal=false, sub='') => `
     <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
       <div style="
         width:140px;min-height:80px;border-radius:10px;padding:14px 10px;text-align:center;
@@ -5810,6 +5811,7 @@ function renderFlujoPacientes() {
       ">
         <div style="font-size:11px;font-weight:600;color:${teal?'#085041':'#0F3D5C'};line-height:1.3;margin-bottom:5px;">${label}</div>
         <div style="font-size:24px;font-weight:800;color:${teal?'#085041':'#0F3D5C'};">${num}</div>
+        ${sub ? `<div style="font-size:10px;color:${teal?'#1D7A5F':'#6B8499'};margin-top:4px;">${sub}</div>` : ''}
       </div>
     </div>`;
 
@@ -5859,7 +5861,7 @@ function renderFlujoPacientes() {
         ${col(nodo('Pacientes registrados', totalRegistrados))}
         ${flechaH}
         ${col(
-          nodo('Pacientes con controles', nConControles),
+          nodo('Pacientes con controles', nConControles, false, `${totalControlesConControles} controles`),
           exclBox(nSinControles, [`Sin controles cargados`])
         )}
         ${flechaH}
