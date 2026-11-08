@@ -5763,22 +5763,18 @@ function renderFlujoPacientes() {
   const datos = getDatosInvestigacion();
   const pacHosp = getPacientesHospital();
 
-  // Nivel 1: total registrados
   const totalRegistrados = pacHosp.length;
 
-  // Nivel 2: con/sin controles
   const conControles = new Set(controles.filter(c => pacHosp.some(p => p.id === c.pacienteId)).map(c => c.pacienteId));
   const nConControles = conControles.size;
   const nSinControles = totalRegistrados - nConControles;
 
-  // Nivel 3: excluidos por estado
   const pacConControles = pacHosp.filter(p => conControles.has(p.id));
   const fallecidos = pacConControles.filter(p => p.estado === 'fallecido' || p.estado === 'Fallecido').length;
   const noLocalizables = pacConControles.filter(p => p.estado === 'no_localizable' || p.estado === 'No localizable').length;
   const nExcluidosEstado = fallecidos + noLocalizables;
   const nAptos = nConControles - nExcluidosEstado;
 
-  // Nivel 4: controles
   const realizados = datos.filter(d => d.tipoRegistro === 'Realizado' && d.aptoAnalisis === 'Sí');
   const pendientes = datos.filter(d => d.tipoRegistro === 'Pendiente' && d.aptoAnalisis === 'Sí');
   const totalControlesAptos = realizados.length + pendientes.length;
@@ -5791,77 +5787,84 @@ function renderFlujoPacientes() {
   const prosp = ind.fases['Prospectivo'].totalAdherencia;
   const totalAnalizados = retro + prosp;
 
-  const box = (label, num, color, bgColor, borderColor, width='180px') => `
-    <div style="width:${width};background:${bgColor};border:1.5px solid ${borderColor};border-radius:10px;padding:12px 14px;text-align:center;position:relative;">
-      <div style="font-size:11px;color:${color};font-weight:600;line-height:1.3;margin-bottom:6px;">${label}</div>
-      <div style="font-size:22px;font-weight:800;color:${color};">${num}</div>
+  // Nodo principal (cadena horizontal)
+  const nodo = (label, num, teal=false) => `
+    <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
+      <div style="
+        width:140px;border-radius:10px;padding:14px 10px;text-align:center;
+        background:${teal?'#E1F5EE':'#EBF2F7'};
+        border:${teal?'2px solid #1D9E75':'1.5px solid #B8CFD8'};
+      ">
+        <div style="font-size:11px;font-weight:600;color:${teal?'#085041':'#0F3D5C'};line-height:1.3;margin-bottom:5px;">${label}</div>
+        <div style="font-size:24px;font-weight:800;color:${teal?'#085041':'#0F3D5C'};">${num}</div>
+      </div>
     </div>`;
 
-  const boxExcl = (label, items) => `
-    <div style="background:#F8FAFC;border:1.5px dashed #B0C4D0;border-radius:10px;padding:10px 14px;min-width:160px;max-width:220px;">
-      <div style="font-size:10px;font-weight:700;color:#6B8499;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:5px;">Excluidos</div>
-      <div style="font-size:11px;color:#1F2937;font-weight:600;margin-bottom:4px;">${label}</div>
-      ${items.map(i=>`<div style="font-size:11px;color:#6B8499;padding-left:8px;">· ${i}</div>`).join('')}
+  // Nodo final con subetiquetas Retro/Prosp
+  const nodoFinal = () => `
+    <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
+      <div style="width:160px;border-radius:10px;padding:14px 10px;text-align:center;background:#E1F5EE;border:2px solid #1D9E75;">
+        <div style="font-size:11px;font-weight:600;color:#085041;margin-bottom:5px;">Controles analizados</div>
+        <div style="font-size:24px;font-weight:800;color:#085041;">${totalAnalizados}</div>
+        <div style="margin-top:8px;display:flex;gap:6px;justify-content:center;">
+          <div style="background:#fff;border:1px solid #1D9E75;border-radius:6px;padding:3px 8px;font-size:11px;color:#085041;"><span style="color:#6B8499;font-size:10px;">Retro </span><b>${retro}</b></div>
+          <div style="background:#fff;border:1px solid #1D9E75;border-radius:6px;padding:3px 8px;font-size:11px;color:#085041;"><span style="color:#6B8499;font-size:10px;">Prosp </span><b>${prosp}</b></div>
+        </div>
+      </div>
     </div>`;
 
-  const arrow = `<div style="display:flex;align-items:center;justify-content:center;color:#B0C4D0;font-size:20px;margin:4px 0;">↓</div>`;
-  const arrowRight = `<div style="display:flex;align-items:center;color:#B0C4D0;font-size:18px;margin:0 10px;align-self:center;">→</div>`;
+  // Flecha horizontal →
+  const flechaH = `<div style="display:flex;align-items:center;flex-shrink:0;padding:0 4px;padding-top:14px;">
+    <svg width="32" height="16" viewBox="0 0 32 16"><line x1="0" y1="8" x2="26" y2="8" stroke="#B0C4D0" stroke-width="1.5"/><polygon points="26,4 32,8 26,12" fill="#B0C4D0"/></svg>
+  </div>`;
 
-  const row = (main, excl) => `
-    <div style="display:flex;align-items:flex-start;justify-content:center;gap:0;">
-      <div style="display:flex;flex-direction:column;align-items:center;">${main}</div>
-      ${excl ? `${arrowRight}${excl}` : ''}
+  // Caja de excluidos (cuelga hacia abajo desde el nodo, con flecha ↓)
+  const exclBox = (titulo, items) => `
+    <div style="display:flex;flex-direction:column;align-items:center;margin-top:8px;">
+      <svg width="2" height="18" viewBox="0 0 2 18"><line x1="1" y1="0" x2="1" y2="14" stroke="#B0C4D0" stroke-width="1.5"/><polygon points="-2,12 2,12 0,18" fill="#B0C4D0"/></svg>
+      <div style="background:#F8FAFC;border:1.5px dashed #B8CFD8;border-radius:8px;padding:8px 12px;min-width:130px;text-align:left;">
+        <div style="font-size:10px;font-weight:700;color:#9BAEBB;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:3px;">Excluidos</div>
+        <div style="font-size:11px;font-weight:600;color:#1F2937;margin-bottom:3px;">${titulo}</div>
+        ${items.map(i=>`<div style="font-size:11px;color:#6B8499;">· ${i}</div>`).join('')}
+      </div>
+    </div>`;
+
+  // Columna: nodo + excluidos debajo
+  const col = (nodoHtml, exclHtml='') => `
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      ${nodoHtml}
+      ${exclHtml}
     </div>`;
 
   return `
-    <div style="margin-bottom:1.5rem;">
-      <div style="font-size:13px;font-weight:700;color:var(--mr-primary);margin-bottom:1rem;">Flujo de selección de pacientes</div>
-      <div style="display:flex;flex-direction:column;align-items:flex-start;gap:0;overflow-x:auto;padding-bottom:4px;">
+    <div style="margin-bottom:1.75rem;">
+      <div style="font-size:13px;font-weight:700;color:var(--mr-primary);margin-bottom:1.25rem;">Flujo de selección de pacientes</div>
+      <div style="display:flex;flex-direction:row;align-items:flex-start;overflow-x:auto;padding-bottom:8px;gap:0;">
 
-        ${row(
-          box('Pacientes registrados', totalRegistrados, '#0F3D5C', '#EBF2F7', '#B0C4D0'),
-          ''
+        ${col(nodo('Pacientes registrados', totalRegistrados))}
+        ${flechaH}
+        ${col(
+          nodo('Con controles en DB', nConControles),
+          exclBox(`Sin controles: ${nSinControles}`, ['Sin seguimiento iniciado'])
         )}
-        ${arrow}
-        ${row(
-          box('Con controles en DB', nConControles, '#0F3D5C', '#EBF2F7', '#B0C4D0'),
-          boxExcl(`Sin controles: ${nSinControles}`, ['Aún no iniciaron seguimiento'])
-        )}
-        ${arrow}
-        ${row(
-          box('Pacientes aptos', nAptos, '#085041', '#E1F5EE', '#1D9E75'),
-          boxExcl(`Excluidos por estado: ${nExcluidosEstado}`, [
+        ${flechaH}
+        ${col(
+          nodo('Pacientes aptos', nAptos, true),
+          exclBox(`Por estado: ${nExcluidosEstado}`, [
             `Fallecidos: ${fallecidos}`,
             `No localizables: ${noLocalizables}`
           ])
         )}
-        ${arrow}
-        ${row(
-          box('Controles registrados', totalControlesAptos, '#0F3D5C', '#EBF2F7', '#B0C4D0'),
-          boxExcl(`Excluidos del análisis: ${nExcluidosAnalisis}`, [
-            `1er control (sin referencia): ${primeros}`,
+        ${flechaH}
+        ${col(
+          nodo('Controles registrados', totalControlesAptos),
+          exclBox(`Del análisis: ${nExcluidosAnalisis}`, [
+            `1er control (sin ref.): ${primeros}`,
             `Pendiente no vencido: ${pendientesNoVencidos}`
           ])
         )}
-        ${arrow}
-        <div style="display:flex;align-items:flex-start;justify-content:center;gap:0;">
-          <div style="display:flex;flex-direction:column;align-items:center;">
-            <div style="width:180px;background:#E1F5EE;border:2px solid #1D9E75;border-radius:10px;padding:12px 14px;text-align:center;">
-              <div style="font-size:11px;color:#085041;font-weight:700;margin-bottom:6px;">Controles analizados</div>
-              <div style="font-size:22px;font-weight:800;color:#085041;">${totalAnalizados}</div>
-              <div style="margin-top:8px;display:flex;gap:8px;justify-content:center;">
-                <div style="background:#fff;border:1px solid #1D9E75;border-radius:6px;padding:4px 10px;font-size:11px;">
-                  <span style="color:#6B8499;">Retro</span>
-                  <span style="font-weight:700;color:#085041;margin-left:4px;">${retro}</span>
-                </div>
-                <div style="background:#fff;border:1px solid #1D9E75;border-radius:6px;padding:4px 10px;font-size:11px;">
-                  <span style="color:#6B8499;">Prosp</span>
-                  <span style="font-weight:700;color:#085041;margin-left:4px;">${prosp}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        ${flechaH}
+        ${col(nodoFinal())}
 
       </div>
     </div>`;
