@@ -5914,7 +5914,7 @@ function renderFlujoPacientes() {
             </div>
           </div>
 
-          <div style="width:1px;background:#D0E4EE;margin:10px 0;"></div>
+          <div style="width:1px;background:#C8DCE8;margin:0;"></div>
 
           <!-- Edad -->
           <div style="flex:1;padding:14px 18px;display:flex;flex-direction:column;gap:8px;">
@@ -5926,7 +5926,7 @@ function renderFlujoPacientes() {
             </div>
           </div>
 
-          <div style="width:1px;background:#D0E4EE;margin:10px 0;"></div>
+          <div style="width:1px;background:#C8DCE8;margin:0;"></div>
 
           <!-- Dispositivo -->
           <div style="flex:1;padding:14px 18px;display:flex;flex-direction:column;gap:8px;">
@@ -5940,14 +5940,15 @@ function renderFlujoPacientes() {
                 const counter = {};
                 Object.values(dispPorPac).forEach(t => { counter[t] = (counter[t]||0)+1; });
                 const colors = ['#0F3D5C','#1a9e8f','#2e86c1','#5d9e6b'];
+                const maxCnt = Math.max(...Object.values(counter));
                 return Object.entries(counter).sort((a,b)=>b[1]-a[1])
                   .map(([tipo,cnt],i) => `
                     <div style="display:flex;align-items:center;gap:8px;">
-                      <span style="font-size:12px;color:#1F2937;flex:1;">${tipo}</span>
-                      <div style="width:60px;background:#E2EEF4;border-radius:4px;height:7px;overflow:hidden;">
-                        <div style="width:${(cnt/nAptos*100).toFixed(0)}%;height:100%;background:${colors[i%colors.length]};border-radius:4px;"></div>
+                      <span style="font-size:12px;color:#1F2937;width:80px;flex-shrink:0;">${tipo}</span>
+                      <div style="flex:1;background:#E2EEF4;border-radius:4px;height:7px;overflow:hidden;">
+                        <div style="width:max(${(cnt/maxCnt*100).toFixed(0)}%,6px);height:100%;background:${colors[i%colors.length]};border-radius:4px;"></div>
                       </div>
-                      <span style="font-size:12px;font-weight:700;color:#0F3D5C;min-width:28px;text-align:right;">${cnt} <span style="font-weight:400;color:#6B8499;">(${(cnt/nAptos*100).toFixed(1)}%)</span></span>
+                      <span style="font-size:12px;font-weight:700;color:#0F3D5C;min-width:50px;text-align:right;">${cnt} <span style="font-weight:400;color:#6B8499;">(${(cnt/nAptos*100).toFixed(1)}%)</span></span>
                     </div>`)
                   .join('');
               })()}
