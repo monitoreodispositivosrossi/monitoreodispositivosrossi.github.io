@@ -5884,9 +5884,9 @@ function renderFlujoPacientes() {
       </div><!-- /flujo-nodos -->
 
       <!-- Recuadro características de la muestra — mismo ancho que el diagrama -->
-      <div id="flujo-caracteristicas" style="margin-top:1rem;border:1.5px solid #B8CFD8;border-radius:10px;padding:14px 18px;background:#F8FAFC;box-sizing:border-box;">
+      <div id="flujo-caracteristicas" style="margin-top:1rem;border:1.5px solid #B8CFD8;border-radius:10px;padding:14px 18px;background:#F8FAFC;box-sizing:border-box;width:100%;">
         <div style="font-size:11px;font-weight:700;color:#6B8499;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Características de la muestra (n=${nAptos} pacientes aptos)</div>
-        <div style="display:flex;gap:2rem;flex-wrap:wrap;align-items:flex-start;">
+        <div style="display:flex;justify-content:space-around;align-items:flex-start;flex-wrap:wrap;gap:1rem;">
 
           <div>
             <div style="font-size:11px;font-weight:600;color:#0F3D5C;margin-bottom:5px;">Sexo</div>
@@ -6078,12 +6078,6 @@ function renderInvestigacion() {
 
   view.innerHTML = html;
   document.getElementById('seccion-flujo-pacientes').innerHTML = renderFlujoPacientes();
-  // Ajustar ancho del recuadro al ancho real del diagrama de nodos
-  requestAnimationFrame(() => {
-    const nodos = document.getElementById('flujo-nodos');
-    const caract = document.getElementById('flujo-caracteristicas');
-    if (nodos && caract) caract.style.width = nodos.offsetWidth + 'px';
-  });
   renderIndicadores();
   renderTablaInvestigacion();
   renderTablaRecuperacion();
