@@ -5852,7 +5852,7 @@ function renderFlujoPacientes() {
   return `
     <div style="margin-bottom:1.75rem;">
       <div style="font-size:13px;font-weight:700;color:var(--mr-primary);margin-bottom:1.25rem;">Flujo de selección de pacientes</div>
-      <div id="flujo-wrapper" style="display:inline-block;min-width:0;">
+      <div id="flujo-wrapper" style="display:block;">
       <div style="display:flex;flex-direction:row;align-items:flex-start;overflow-x:auto;padding-bottom:8px;gap:0;" id="flujo-nodos">
 
         ${col(nodo('Pacientes registrados', totalRegistrados))}
@@ -5881,9 +5881,10 @@ function renderFlujoPacientes() {
         ${col(nodoFinal())}
 
       </div>
+      </div><!-- /flujo-nodos -->
 
-      <!-- Recuadro características de la muestra -->
-      <div style="margin-top:1.25rem;border:1.5px solid #B8CFD8;border-radius:10px;padding:14px 18px;background:#F8FAFC;display:inline-block;min-width:400px;">
+      <!-- Recuadro características de la muestra — mismo ancho que el diagrama -->
+      <div style="margin-top:1rem;border:1.5px solid #B8CFD8;border-radius:10px;padding:14px 18px;background:#F8FAFC;box-sizing:border-box;width:100%;">
         <div style="font-size:11px;font-weight:700;color:#6B8499;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Características de la muestra (n=${nAptos} pacientes aptos)</div>
         <div style="display:flex;gap:2rem;flex-wrap:wrap;align-items:flex-start;">
 
@@ -5921,6 +5922,7 @@ function renderFlujoPacientes() {
         </div>
       </div>
 
+      </div><!-- /flujo-wrapper -->
     </div>`;
 }
 
