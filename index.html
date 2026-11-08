@@ -5791,6 +5791,23 @@ function renderFlujoPacientes() {
   // Demografía de pacientes aptos (usando calcularEdad() existente)
   const codigosAptos = new Set(datos.filter(d => d.aptoAnalisis === 'Sí').map(d => d.codigo));
   const pacAptos = pacHosp.filter(p => codigosAptos.has(p.codigo));
+
+  // Retro/prosp para cada nodo — fase del paciente determina la clasificación
+  const pacRetro = new Set(pacHosp.filter(p => p.fase === 'Retrospectivo').map(p => p.id));
+  const pacProsp = new Set(pacHosp.filter(p => p.fase === 'Prospectivo').map(p => p.id));
+  // Pacientes con controles por fase
+  const conControlesRetro = [...conControles].filter(id => pacRetro.has(id)).length;
+  const conControlesProsp = [...conControles].filter(id => pacProsp.has(id)).length;
+  // Controles totales (136) por fase
+  const ctrlRetro136 = controles.filter(c => pacRetro.has(c.pacienteId) && pacHosp.some(p=>p.id===c.pacienteId)).length;
+  const ctrlProsp136 = controles.filter(c => pacProsp.has(c.pacienteId) && pacHosp.some(p=>p.id===c.pacienteId)).length;
+  // Pacientes aptos por fase
+  const idAptos = new Set(pacAptos.map(p => p.id));
+  const aptosRetro = [...idAptos].filter(id => pacRetro.has(id)).length;
+  const aptosProsp = [...idAptos].filter(id => pacProsp.has(id)).length;
+  // Controles registrados (127) por fase
+  const ctrl127Retro = realizados.filter(d => d.fase === 'Retrospectivo').length + pendientes.filter(d => d.fase === 'Retrospectivo').length;
+  const ctrl127Prosp = realizados.filter(d => d.fase === 'Prospectivo').length + pendientes.filter(d => d.fase === 'Prospectivo').length;
   const nF = pacAptos.filter(p => p.sexo === 'F' || p.sexo === 'femenino').length;
   const nM = pacAptos.filter(p => p.sexo === 'M' || p.sexo === 'masculino').length;
   const edadesUsar = pacAptos.map(p => calcularEdad(p.fechaNacimiento)).filter(e => e !== null && e > 0);
@@ -5804,11 +5821,18 @@ function renderFlujoPacientes() {
   const NODE_H = '100px';
   const EXCL_H = '90px';
 
-  // Nodo principal — título, número y subtexto en zonas de altura fija para alinear entre nodos
-  const nodo = (label, num, teal=false, sub='') => `
+  // Píldoras retro/prosp reutilizables
+  const pills = (r, p, teal=false) => `
+    <div style="display:flex;gap:5px;justify-content:center;">
+      <div style="background:${teal?'#fff':'#fff'};border:1px solid ${teal?'#1D9E75':'#B8CFD8'};border-radius:5px;padding:2px 6px;font-size:10px;color:${teal?'#085041':'#0F3D5C'};"><span style="color:#9BAEBB;font-size:9px;">R </span><b>${r}</b></div>
+      <div style="background:${teal?'#fff':'#fff'};border:1px solid ${teal?'#1D9E75':'#B8CFD8'};border-radius:5px;padding:2px 6px;font-size:10px;color:${teal?'#085041':'#0F3D5C'};"><span style="color:#9BAEBB;font-size:9px;">P </span><b>${p}</b></div>
+    </div>`;
+
+  // Nodo principal — título, número y pills en zonas de altura fija para alinear entre nodos
+  const nodo = (label, num, teal=false, r=null, p=null) => `
     <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
       <div style="
-        width:140px;height:${NODE_H};border-radius:10px;padding:10px 10px 8px;text-align:center;
+        width:148px;height:${NODE_H};border-radius:10px;padding:10px 10px 8px;text-align:center;
         display:flex;flex-direction:column;align-items:center;justify-content:space-between;box-sizing:border-box;
         background:${teal?'#E1F5EE':'#EBF2F7'};
         border:${teal?'2px solid #1D9E75':'1.5px solid #B8CFD8'};
@@ -5817,28 +5841,16 @@ function renderFlujoPacientes() {
           <div style="font-size:11px;font-weight:600;color:${teal?'#085041':'#0F3D5C'};line-height:1.3;">${label}</div>
         </div>
         <div style="font-size:24px;font-weight:800;color:${teal?'#085041':'#0F3D5C'};line-height:1;">${num}</div>
-        <div style="height:20px;display:flex;align-items:center;justify-content:center;">
-          ${sub ? `<div style="font-size:12px;font-weight:600;color:${teal?'#1D7A5F':'#4A7A99'};">${sub}</div>` : ''}
+        <div style="height:22px;display:flex;align-items:center;justify-content:center;">
+          ${r !== null ? pills(r, p, teal) : ''}
         </div>
       </div>
     </div>`;
 
-  // Nodo final con subetiquetas Retro/Prosp — misma estructura de zonas fijas
-  const nodoFinal = () => `
-    <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
-      <div style="width:160px;height:${NODE_H};border-radius:10px;padding:10px 10px 8px;text-align:center;background:#E1F5EE;border:2px solid #1D9E75;display:flex;flex-direction:column;align-items:center;justify-content:space-between;box-sizing:border-box;">
-        <div style="height:30px;display:flex;align-items:center;justify-content:center;">
-          <div style="font-size:11px;font-weight:600;color:#085041;">Controles analizados</div>
-        </div>
-        <div style="font-size:24px;font-weight:800;color:#085041;line-height:1;">${totalAnalizados}</div>
-        <div style="height:20px;display:flex;align-items:center;gap:6px;justify-content:center;">
-          <div style="background:#fff;border:1px solid #1D9E75;border-radius:6px;padding:2px 7px;font-size:11px;color:#085041;"><span style="color:#6B8499;font-size:10px;">Retro </span><b>${retro}</b></div>
-          <div style="background:#fff;border:1px solid #1D9E75;border-radius:6px;padding:2px 7px;font-size:11px;color:#085041;"><span style="color:#6B8499;font-size:10px;">Prosp </span><b>${prosp}</b></div>
-        </div>
-      </div>
-    </div>`;
+  // Nodo final — misma estructura que nodo()
+  const nodoFinal = () => nodo('Controles analizados', totalAnalizados, true, retro, prosp);
 
-  // Flecha horizontal centrada en la altura del nodo
+  // Flecha horizontal centrada en la mitad del nodo (NODE_H=100px → mitad=50px, menos mitad flecha 8px)
   const flechaH = `<div style="display:flex;align-items:flex-start;flex-shrink:0;padding:0 4px;padding-top:42px;">
     <svg width="32" height="16" viewBox="0 0 32 16"><line x1="0" y1="8" x2="26" y2="8" stroke="#B0C4D0" stroke-width="1.5"/><polygon points="26,4 32,8 26,12" fill="#B0C4D0"/></svg>
   </div>`;
@@ -5870,12 +5882,12 @@ function renderFlujoPacientes() {
         ${col(nodo('Pacientes registrados', totalRegistrados))}
         ${flechaH}
         ${col(
-          nodo('Pacientes con controles', nConControles, false, `${totalControlesConControles} controles`),
+          nodo('Pacientes con controles', nConControles, false, conControlesRetro, conControlesProsp),
           exclBox(nSinControles, [`Sin controles cargados`])
         )}
         ${flechaH}
         ${col(
-          nodo('Pacientes aptos', nAptos, true),
+          nodo('Pacientes aptos', nAptos, true, aptosRetro, aptosProsp),
           exclBox(nExcluidosEstado, [
             `Fallecidos: ${fallecidos}`,
             `No localizables: ${noLocalizables}`
@@ -5883,7 +5895,7 @@ function renderFlujoPacientes() {
         )}
         ${flechaH}
         ${col(
-          nodo('Controles registrados', totalControlesAptos),
+          nodo('Controles registrados', totalControlesAptos, false, ctrl127Retro, ctrl127Prosp),
           exclBox(nExcluidosAnalisis, [
             `1er control (sin ref.): ${primeros}`,
             `Pendiente no vencido: ${pendientesNoVencidos}`
