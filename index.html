@@ -5787,8 +5787,36 @@ function renderFlujoPacientes() {
   const prosp = ind.fases['Prospectivo'].totalAdherencia;
   const totalAnalizados = retro + prosp;
 
+  // Demografía de pacientes aptos (calculada dinámicamente)
+  const pacAptos = pacHosp.filter(p => {
+    const tieneControlApto = datos.some(d => d.codigo === p.codigo && d.aptoAnalisis === 'Sí');
+    return tieneControlApto;
+  });
+  const nF = pacAptos.filter(p => p.sexo === 'F' || p.sexo === 'femenino').length;
+  const nM = pacAptos.filter(p => p.sexo === 'M' || p.sexo === 'masculino').length;
+  const edadesAptos = pacAptos.map(p => {
+    const e = parseInt(p.edad ?? p.fechaNacimiento);
+    return isNaN(e) || e <= 0 ? null : e;
+  }).filter(e => e !== null);
+  // Calcular edad desde fechaNacimiento si no hay campo edad directo
+  const hoy = new Date();
+  const edadesCalc = pacAptos.map(p => {
+    if (p.fechaNacimiento) {
+      const fn = new Date(p.fechaNacimiento);
+      const edad = hoy.getFullYear() - fn.getFullYear() - ((hoy.getMonth() < fn.getMonth() || (hoy.getMonth() === fn.getMonth() && hoy.getDate() < fn.getDate())) ? 1 : 0);
+      return edad > 0 ? edad : null;
+    }
+    return null;
+  }).filter(e => e !== null);
+  const edadesUsar = edadesCalc.length >= edadesAptos.length ? edadesCalc : edadesAptos;
+  const nEdad = edadesUsar.length;
+  const promEdad = nEdad ? (edadesUsar.reduce((a,b)=>a+b,0)/nEdad) : 0;
+  const dsEdad = nEdad > 1 ? Math.sqrt(edadesUsar.reduce((a,b)=>a+(b-promEdad)**2,0)/(nEdad-1)) : 0;
+  const minEdad = nEdad ? Math.min(...edadesUsar) : 0;
+  const maxEdad = nEdad ? Math.max(...edadesUsar) : 0;
+
   // Nodo principal (cadena horizontal) — altura fija para alinear todos
-  const nodo = (label, num, teal=false) => `
+  const nodo = (label, num, teal=false, extra='') => `
     <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
       <div style="
         width:140px;min-height:80px;border-radius:10px;padding:14px 10px;text-align:center;
@@ -5798,6 +5826,7 @@ function renderFlujoPacientes() {
       ">
         <div style="font-size:11px;font-weight:600;color:${teal?'#085041':'#0F3D5C'};line-height:1.3;margin-bottom:5px;">${label}</div>
         <div style="font-size:24px;font-weight:800;color:${teal?'#085041':'#0F3D5C'};">${num}</div>
+        ${extra}
       </div>
     </div>`;
 
@@ -5850,7 +5879,16 @@ function renderFlujoPacientes() {
         )}
         ${flechaH}
         ${col(
-          nodo('Pacientes aptos', nAptos, true),
+          nodo('Pacientes aptos', nAptos, true, `
+            <div style="margin-top:8px;width:100%;border-top:1px solid #a8dcc8;padding-top:7px;">
+              <div style="font-size:10px;color:#085041;margin-bottom:3px;">
+                <span style="font-weight:600;">F</span> ${nF} &nbsp;·&nbsp; <span style="font-weight:600;">M</span> ${nM}
+              </div>
+              <div style="font-size:10px;color:#085041;">
+                ${promEdad.toFixed(1)} ± ${dsEdad.toFixed(1)} años
+              </div>
+              <div style="font-size:10px;color:#3a7d63;">(${minEdad}–${maxEdad})</div>
+            </div>`),
           exclBox(`Por estado: ${nExcluidosEstado}`, [
             `Fallecidos: ${fallecidos}`,
             `No localizables: ${noLocalizables}`
@@ -5868,6 +5906,46 @@ function renderFlujoPacientes() {
         ${col(nodoFinal())}
 
       </div>
+
+      <!-- Recuadro características de la muestra -->
+      <div style="margin-top:1.25rem;border:1.5px solid #B8CFD8;border-radius:10px;padding:14px 18px;background:#F8FAFC;display:inline-block;min-width:400px;">
+        <div style="font-size:11px;font-weight:700;color:#6B8499;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;">Características de la muestra (n=${nAptos} pacientes aptos)</div>
+        <div style="display:flex;gap:2rem;flex-wrap:wrap;align-items:flex-start;">
+
+          <div>
+            <div style="font-size:11px;font-weight:600;color:#0F3D5C;margin-bottom:5px;">Sexo</div>
+            <div style="font-size:12px;color:#1F2937;">Femenino: <b>${nF}</b> (${(nF/nAptos*100).toFixed(1)}%)</div>
+            <div style="font-size:12px;color:#1F2937;">Masculino: <b>${nM}</b> (${(nM/nAptos*100).toFixed(1)}%)</div>
+          </div>
+
+          <div style="width:1px;background:#DCE6EC;align-self:stretch;"></div>
+
+          <div>
+            <div style="font-size:11px;font-weight:600;color:#0F3D5C;margin-bottom:5px;">Edad</div>
+            <div style="font-size:12px;color:#1F2937;">Promedio ± DS: <b>${promEdad.toFixed(1)} ± ${dsEdad.toFixed(1)} años</b></div>
+            <div style="font-size:12px;color:#6B8499;">Rango: ${minEdad}–${maxEdad} años</div>
+          </div>
+
+          <div style="width:1px;background:#DCE6EC;align-self:stretch;"></div>
+
+          <div>
+            <div style="font-size:11px;font-weight:600;color:#0F3D5C;margin-bottom:5px;">Tipo de dispositivo</div>
+            ${(() => {
+              const dispPorPac = {};
+              datos.filter(d => d.aptoAnalisis === 'Sí').forEach(d => {
+                if (!dispPorPac[d.codigo]) dispPorPac[d.codigo] = d.tipoDispositivo;
+              });
+              const counter = {};
+              Object.values(dispPorPac).forEach(t => { counter[t] = (counter[t]||0)+1; });
+              return Object.entries(counter).sort((a,b)=>b[1]-a[1])
+                .map(([tipo,cnt]) => `<div style="font-size:12px;color:#1F2937;">${tipo}: <b>${cnt}</b> (${(cnt/nAptos*100).toFixed(1)}%)</div>`)
+                .join('');
+            })()}
+          </div>
+
+        </div>
+      </div>
+
     </div>`;
 }
 
