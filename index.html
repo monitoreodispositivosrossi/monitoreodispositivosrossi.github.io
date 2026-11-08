@@ -1215,7 +1215,7 @@ function vidaBateriaEstimadaHoy(c) {
 }
 
 function calcularFase(c) {
-  if (c.fase) return c.fase;
+  // Siempre recalcula por fecha — el campo fase guardado en DB se ignora
   const _fc = _parseFmt(c.fechaControl);
   const pac = pacientes.find(p => p.id === c.pacienteId);
   return _fc < getFechaImpl(pac?.hospitalId) ? 'Retrospectivo' : 'Prospectivo';
