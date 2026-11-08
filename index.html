@@ -5778,10 +5778,14 @@ function renderFlujoPacientes() {
 
   const realizados = datos.filter(d => d.tipoRegistro === 'Realizado' && d.aptoAnalisis === 'Sí');
   const pendientes = datos.filter(d => d.tipoRegistro === 'Pendiente' && d.aptoAnalisis === 'Sí');
-  const totalControlesAptos = realizados.length + pendientes.length;
+  // Todos los controles (aptos y no aptos) para el nodo "Controles registrados"
+  const todosRealizados = datos.filter(d => d.tipoRegistro === 'Realizado');
+  const todosPendientes = datos.filter(d => d.tipoRegistro === 'Pendiente');
+  const totalControlesAptos = todosRealizados.length + todosPendientes.length;
+  const nNoAptos = datos.filter(d => d.aptoAnalisis === 'No').length;
   const primeros = realizados.filter(d => d.adherente === '-').length;
   const pendientesNoVencidos = pendientes.filter(d => !d.retrasoDias || d.retrasoDias <= 30).length;
-  const nExcluidosAnalisis = primeros + pendientesNoVencidos;
+  const nExcluidosAnalisis = nNoAptos + primeros + pendientesNoVencidos;
 
   const ind = calcularIndicadores();
   const retro = ind.fases['Retrospectivo'].totalAdherencia;
@@ -5807,9 +5811,9 @@ function renderFlujoPacientes() {
   const idAptos = new Set(pacAptos.map(p => p.id));
   const aptosRetro = [...idAptos].filter(id => pacConRetro.has(id) && !pacConProsp.has(id)).length;
   const aptosProsp = [...idAptos].filter(id => pacConProsp.has(id)).length;
-  // Controles registrados (127) por fase — ya tienen .fase calculada en getDatosInvestigacion
-  const ctrl127Retro = realizados.filter(d => d.faseRetraso === 'Retrospectivo').length + pendientes.filter(d => d.faseRetraso === 'Retrospectivo').length;
-  const ctrl127Prosp = realizados.filter(d => d.faseRetraso === 'Prospectivo').length + pendientes.filter(d => d.faseRetraso === 'Prospectivo').length;
+  // Controles registrados por fase — todos (aptos y no aptos)
+  const ctrl127Retro = todosRealizados.filter(d => d.faseRetraso === 'Retrospectivo').length + todosPendientes.filter(d => d.faseRetraso === 'Retrospectivo').length;
+  const ctrl127Prosp = todosRealizados.filter(d => d.faseRetraso === 'Prospectivo').length + todosPendientes.filter(d => d.faseRetraso === 'Prospectivo').length;
   const nF = pacAptos.filter(p => p.sexo === 'F' || p.sexo === 'femenino').length;
   const nM = pacAptos.filter(p => p.sexo === 'M' || p.sexo === 'masculino').length;
   const edadesUsar = pacAptos.map(p => calcularEdad(p.fechaNacimiento)).filter(e => e !== null && e > 0);
@@ -5902,6 +5906,7 @@ function renderFlujoPacientes() {
         ${col(
           nodo('Controles registrados', totalControlesAptos, false, ctrl127Retro, ctrl127Prosp),
           exclBox(nExcluidosAnalisis, [
+            `No aptos: ${nNoAptos}`,
             `1er control (sin ref.): ${primeros}`,
             `Pendiente no vencido: ${pendientesNoVencidos}`
           ])
