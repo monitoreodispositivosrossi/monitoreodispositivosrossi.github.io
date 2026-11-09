@@ -408,7 +408,7 @@ async function sbDeleteDebug(tabla, filtro) {
 // ===================== VARIABLES GLOBALES =====================
 const TIPOS = { T1:{nombre:'Marcapasos',lapso:12}, T2:{nombre:'CDI',lapso:6}, T3:{nombre:'TRC (resincronizador)',lapso:6}, T4:{nombre:'CDI+TRC',lapso:6} };
 
-let pacientes = [], dispositivos = [], controles = [], turnosReservados = [], accionesContacto = [], profesionales = [];
+let pacientes = [], dispositivos = [], controles = [], turnosReservados = [], turnosTodos = [], accionesContacto = [], profesionales = [];
 let profesionalLogueado = null, pacienteLogueado = null, controlEditandoId = null;
 let _submitRunning = false;
 let _submitAbort = null;
@@ -580,7 +580,8 @@ async function cargarDataset() {
     };
   });
   // Compatibilidad: si AGENDA_CONFIG global tiene datos, usarlo para el profesional activo
-  turnosReservados  = (tu||[]).map(mapTurno).filter(t => { const hoy = toInputDate(new Date()); return t.fecha >= hoy; });
+  turnosTodos       = (tu||[]).map(mapTurno); // histórico completo — para estadísticas
+  turnosReservados  = turnosTodos.filter(t => { const hoy = toInputDate(new Date()); return t.fecha >= hoy; }); // solo futuros — para agenda
   accionesContacto  = (ac||[]).map(mapAccion);
   (cfg||[]).forEach(row => {
     const v = row.valor;
@@ -6002,6 +6003,65 @@ function renderFlujoPacientes() {
     </div>`;
 }
 
+function calcularUsoTurnosOnline() {
+  // Controles prospectivos donde:
+  // 1. El paciente ya tuvo al menos un control previo en fase prospectiva
+  // 2. La fecha programada del SIGUIENTE control ya está en fecha (proxControl <= hoy)
+  // 3. Hay un turno reservado en ±30 días de esa fechaProgramada
+  const datos = getDatosInvestigacion();
+  const hoy = toInputDate(new Date());
+
+  // Pacientes que ya tuvieron al menos un control prospectivo realizado
+  const conProspRealizado = new Set(
+    datos.filter(d => d.tipoRegistro === 'Realizado' && d.faseRetraso === 'Prospectivo' && d.aptoAnalisis === 'Sí')
+         .map(d => d.codigo)
+  );
+
+  // Controles prospectivos realizados (no primeros) de pacientes que ya tienen al menos uno prospectivo previo
+  // cuya fecha programada del próximo control ya llegó (proxControl <= hoy)
+  const candidatos = datos.filter(d =>
+    d.tipoRegistro === 'Realizado' &&
+    d.faseRetraso === 'Prospectivo' &&
+    d.aptoAnalisis === 'Sí' &&
+    d.adherente !== '-' && // excluye primer control sin referencia
+    conProspRealizado.has(d.codigo)
+  );
+
+  // Para cada candidato, verificar si existe un turno en ±30 días de fecha_programada del SIGUIENTE control
+  // La "fecha programada del siguiente" es el proxControl del control realizado
+  // Necesitamos el proxControl del control original en Supabase — está en el objeto control
+  const pacHosp = getPacientesHospital();
+  let total = 0;
+  let conTurno = 0;
+
+  candidatos.forEach(d => {
+    // Buscar el control original para obtener proxControl
+    const pac = pacHosp.find(p => p.codigo === d.codigo);
+    if (!pac) return;
+    const ctrl = controles.find(c =>
+      c.pacienteId === pac.id &&
+      toInputDate(_parseFmt(c.fechaProgramada || c.fecha_programada)) === d.fechaProgramada
+    );
+    if (!ctrl || !ctrl.proxControl) return;
+    const proxFechaStr = toInputDate(_parseFmt(ctrl.proxControl));
+    // Solo incluir si proxControl ya llegó (en fecha o vencido)
+    if (proxFechaStr > hoy) return;
+
+    total++;
+    // Buscar turno en ±30 días de proxFechaStr
+    const proxDate = _parseFmt(ctrl.proxControl);
+    const tiene = turnosTodos.some(t => {
+      if (t.pacienteId !== pac.id) return false;
+      const tDate = _parseFmt(t.fecha);
+      const diff = Math.abs((tDate - proxDate) / (1000*60*60*24));
+      return diff <= 30;
+    });
+    if (tiene) conTurno++;
+  });
+
+  return { total, conTurno };
+}
+
 function renderIndicadores() {
   const cont = document.getElementById('seccion-indicadores');
   if (!cont) return;
@@ -6086,6 +6146,38 @@ function renderIndicadores() {
         <div style="text-align:center;"><div style="font-size:18px; font-weight:700; color:var(--mr-coral-text);">${rec.sinGestionar}</div><div style="color:var(--mr-coral-text); font-size:11px; font-weight:600;">${rec.pctSinGestionar}%</div><div style="color:var(--mr-text-muted);">Sin gestionar</div></div>
       </div>
     </div>
+
+    <!-- Uso de turnos online (fase prospectiva) -->
+    ${(() => {
+      const tu = calcularUsoTurnosOnline();
+      const pct = tu.total > 0 ? (tu.conTurno / tu.total * 100).toFixed(1) : '-';
+      const sinTurno = tu.total - tu.conTurno;
+      return `
+      <div style="background:var(--mr-bg); border-radius:10px; padding:1rem; border:1px solid var(--mr-border); margin-top:1rem;">
+        <div style="font-weight:700; font-size:13px; margin-bottom:0.25rem; color:var(--mr-navy);">Uso del módulo de turnos online (fase prospectiva)</div>
+        <div style="font-size:11px; color:var(--mr-text-muted); margin-bottom:0.75rem;">Controles prospectivos cuya fecha programada ya está en fecha (± 30 días), con al menos un control previo en fase prospectiva.</div>
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:8px; font-size:12px;">
+          <div style="text-align:center;">
+            <div style="font-size:22px; font-weight:800; color:var(--mr-navy);">${tu.total}</div>
+            <div style="color:var(--mr-text-muted); font-size:11px;">Denominador</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:22px; font-weight:800; color:var(--mr-teal-text);">${tu.conTurno}</div>
+            <div style="color:var(--mr-teal-text); font-size:11px; font-weight:600;">${pct !== '-' ? pct+'%' : '-'}</div>
+            <div style="color:var(--mr-text-muted); font-size:11px;">Sacaron turno online</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:22px; font-weight:800; color:var(--mr-coral-text);">${sinTurno}</div>
+            <div style="color:var(--mr-coral-text); font-size:11px; font-weight:600;">${pct !== '-' ? (100 - parseFloat(pct)).toFixed(1)+'%' : '-'}</div>
+            <div style="color:var(--mr-text-muted); font-size:11px;">Sin turno online</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:14px; font-weight:700; color:var(--mr-navy); margin-top:4px;">±30 días</div>
+            <div style="color:var(--mr-text-muted); font-size:11px;">ventana de búsqueda</div>
+          </div>
+        </div>
+      </div>`;
+    })()}
   `;
 }
 
