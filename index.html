@@ -6004,64 +6004,43 @@ function renderFlujoPacientes() {
 }
 
 function calcularUsoTurnosOnline() {
-  // Para cada control prospectivo realizado (no primer control):
-  // — el paciente ya tuvo al menos un control prospectivo previo
-  // — su proxControl ya llegó (proxControl <= hoy)
-  // Verificar si el paciente tiene un turno en ±30 días de ese proxControl
+  // Denominador: controles prospectivos realizados cuyo proxControl ya llegó (≤ hoy)
+  // Numerador: de esos, cuántos tienen un turno online en ±30 días del proxControl
   const pacHosp = getPacientesHospital();
   const hoy = new Date();
-  const hoyStr = toInputDate(hoy);
 
-  // Controles del hospital
-  const ctrlsHosp = controles.filter(c => pacHosp.some(p => p.id === c.pacienteId));
-
-  // Pacientes aptos (activos)
+  // Solo pacientes activos del hospital
   const pacActivosIds = new Set(pacHosp.filter(p => p.estado === 'Activo').map(p => p.id));
 
-  // Para cada paciente, ordenar sus controles por fecha
-  const porPaciente = {};
-  ctrlsHosp.forEach(c => {
-    if (!pacActivosIds.has(c.pacienteId)) return;
-    if (!porPaciente[c.pacienteId]) porPaciente[c.pacienteId] = [];
-    porPaciente[c.pacienteId].push(c);
-  });
+  // Controles del hospital de pacientes activos, con fechaControl y proxControl
+  const ctrlsAptos = controles.filter(c =>
+    pacActivosIds.has(c.pacienteId) &&
+    c.fechaControl &&
+    c.proxControl
+  );
 
   let total = 0;
   let conTurno = 0;
 
-  Object.entries(porPaciente).forEach(([pacId, ctrls]) => {
-    const pac = pacHosp.find(p => p.id === pacId);
-    if (!pac) return;
+  ctrlsAptos.forEach(c => {
+    // Solo prospectivos
+    if (calcularFase(c) !== 'Prospectivo') return;
 
-    // Ordenar por fechaControl
-    ctrls.sort((a, b) => (_parseFmt(a.fechaControl) || 0) - (_parseFmt(b.fechaControl) || 0));
+    // proxControl tiene que haber llegado (≤ hoy)
+    const proxFecha = _parseFmt(c.proxControl);
+    if (!proxFecha || proxFecha > hoy) return;
 
-    // Recorrer cada control prospectivo (no el primero del paciente)
-    ctrls.forEach((c, idx) => {
-      if (idx === 0) return; // primer control del paciente — sin referencia previa
-      if (calcularFase(c) !== 'Prospectivo') return; // solo prospectivos
-      if (!c.proxControl) return; // sin próximo control programado
+    total++;
 
-      const proxFecha = _parseFmt(c.proxControl);
-      if (!proxFecha) return;
-      if (proxFecha > hoy) return; // próximo control aún en el futuro
-
-      // Verificar que el paciente ya tuvo al menos un control prospectivo anterior
-      const tieneProspPrevio = ctrls.slice(0, idx).some(prev => calcularFase(prev) === 'Prospectivo');
-      if (!tieneProspPrevio) return;
-
-      total++;
-
-      // Buscar turno del paciente en ±30 días del proxControl
-      const tiene = turnosTodos.some(t => {
-        if (t.pacienteId !== pacId) return false;
-        const tFecha = _parseFmt(t.fecha);
-        if (!tFecha) return false;
-        const diff = Math.abs((tFecha - proxFecha) / (1000*60*60*24));
-        return diff <= 30;
-      });
-      if (tiene) conTurno++;
+    // Buscar turno del paciente en ±30 días del proxControl
+    const tiene = turnosTodos.some(t => {
+      if (t.pacienteId !== c.pacienteId) return false;
+      const tFecha = _parseFmt(t.fecha);
+      if (!tFecha) return false;
+      const diff = Math.abs((tFecha - proxFecha) / (1000*60*60*24));
+      return diff <= 30;
     });
+    if (tiene) conTurno++;
   });
 
   return { total, conTurno };
