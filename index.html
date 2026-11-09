@@ -6029,20 +6029,15 @@ function calcularUsoTurnosOnline() {
     // proxControl tiene que estar en fecha (≤ hoy + 30 días)
     const proxFecha = _parseFmt(c.proxControl);
     if (!proxFecha) return;
-    const hoyMas30 = new Date(hoy); hoyMas30.setDate(hoyMas30.getDate() + 30);
-    if (proxFecha > hoyMas30) return;
+    const hoyMas14 = new Date(hoy); hoyMas14.setDate(hoyMas14.getDate() + 14);
+    if (proxFecha > hoyMas14) return;
 
     total++;
 
-    // Buscar turno ONLINE del paciente en ±30 días del proxControl
-    const tiene = turnosTodos.some(t => {
-      if (t.pacienteId !== c.pacienteId) return false;
-      if (t.origen !== 'online') return false;
-      const tFecha = _parseFmt(t.fecha);
-      if (!tFecha) return false;
-      const diff = Math.abs((tFecha - proxFecha) / (1000*60*60*24));
-      return diff <= 30;
-    });
+    // Buscar turno ONLINE vinculado directamente a este control (por control_id)
+    const tiene = turnosTodos.some(t =>
+      t.controlId === c.id && t.origen === 'online'
+    );
     if (tiene) conTurno++;
   });
 
