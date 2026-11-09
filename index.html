@@ -6026,9 +6026,11 @@ function calcularUsoTurnosOnline() {
     // Solo prospectivos
     if (calcularFase(c) !== 'Prospectivo') return;
 
-    // proxControl tiene que haber llegado (≤ hoy)
+    // proxControl tiene que estar en fecha (≤ hoy + 30 días)
     const proxFecha = _parseFmt(c.proxControl);
-    if (!proxFecha || proxFecha > hoy) return;
+    if (!proxFecha) return;
+    const hoyMas30 = new Date(hoy); hoyMas30.setDate(hoyMas30.getDate() + 30);
+    if (proxFecha > hoyMas30) return;
 
     total++;
 
